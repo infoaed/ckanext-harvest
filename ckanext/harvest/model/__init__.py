@@ -18,8 +18,14 @@ __all__ = [
     'HarvestObjectError', 'harvest_object_error_table',
 ]
 
+harvest_source_table = None
+harvest_job_table = None
+harvest_object_table = None
+harvest_gather_error_table = None
 
 def setup():
+    if harvest_source_table is None:
+        make_harvest_tables()
     metadata.create_all()
 
 class HarvestError(Exception):
@@ -95,104 +101,111 @@ class HarvestObjectError(HarvestDomainObject):
     pass
 
 
-harvest_source_table = Table('harvest_source', metadata,
-    Column('id', types.UnicodeText, primary_key=True, default=make_uuid),
-    Column('url', types.UnicodeText, nullable=False),
-    Column('description', types.UnicodeText, default=u''),
-    Column('config', types.UnicodeText, default=u''),
-    Column('created', DateTime, default=datetime.datetime.utcnow),
-    Column('type',types.UnicodeText,nullable=False),
-    Column('active',types.Boolean,default=True),
-    Column('user_id', types.UnicodeText, default=u''),
-    Column('publisher_id', types.UnicodeText, default=u''),
-)
-# Was harvesting_job
-harvest_job_table = Table('harvest_job', metadata,
-    Column('id', types.UnicodeText, primary_key=True, default=make_uuid),
-    Column('created', DateTime, default=datetime.datetime.utcnow),
-    Column('gather_started', DateTime),
-    Column('gather_finished', DateTime),
-    Column('source_id', types.UnicodeText, ForeignKey('harvest_source.id')),
-    Column('status', types.UnicodeText, default=u'New', nullable=False),
-)
-# Was harvested_document
-harvest_object_table = Table('harvest_object', metadata,
-    Column('id', types.UnicodeText, primary_key=True, default=make_uuid),
-    Column('guid', types.UnicodeText, default=''),
-    Column('created', DateTime, default=datetime.datetime.utcnow),
-    Column('content', types.UnicodeText, nullable=True),
-    Column('harvest_job_id', types.UnicodeText, ForeignKey('harvest_job.id')),
-    Column('fetch_started', DateTime),
-    Column('fetch_finished', DateTime),
-    Column('retry_times',types.Integer),
-    Column('package_id', types.UnicodeText, ForeignKey('package.id'), nullable=True),
-)
-# New table
-harvest_gather_error_table = Table('harvest_gather_error',metadata,
-    Column('id', types.UnicodeText, primary_key=True, default=make_uuid),
-    Column('harvest_job_id', types.UnicodeText, ForeignKey('harvest_job.id')),
-    Column('message', types.UnicodeText),
-    Column('created', DateTime, default=datetime.datetime.utcnow),
-)
-# New table
-harvest_object_error_table = Table('harvest_object_error',metadata,
-    Column('id', types.UnicodeText, primary_key=True, default=make_uuid),
-    Column('harvest_object_id', types.UnicodeText, ForeignKey('harvest_object.id')),
-    Column('message',types.UnicodeText),
-    Column('stage', types.UnicodeText),
-    Column('created', DateTime, default=datetime.datetime.utcnow),  
-)
+def make_harvest_tables():
 
-mapper(
-    HarvestSource,
-    harvest_source_table,
-    properties={
-        'jobs': relation(
-            HarvestJob,
-            backref=u'source',
-            order_by=harvest_job_table.c.created,
-        ),
-    },
-)
+    global harvest_source_table 
+    global harvest_job_table 
+    global harvest_object_table
+    global harvest_gather_error_table
 
-mapper(
-    HarvestJob,
-    harvest_job_table,
-)
+    harvest_source_table = Table('harvest_source', metadata,
+        Column('id', types.UnicodeText, primary_key=True, default=make_uuid),
+        Column('url', types.UnicodeText, nullable=False),
+        Column('description', types.UnicodeText, default=u''),
+        Column('config', types.UnicodeText, default=u''),
+        Column('created', DateTime, default=datetime.datetime.utcnow),
+        Column('type',types.UnicodeText,nullable=False),
+        Column('active',types.Boolean,default=True),
+        Column('user_id', types.UnicodeText, default=u''),
+        Column('publisher_id', types.UnicodeText, default=u''),
+    )
+    # Was harvesting_job
+    harvest_job_table = Table('harvest_job', metadata,
+        Column('id', types.UnicodeText, primary_key=True, default=make_uuid),
+        Column('created', DateTime, default=datetime.datetime.utcnow),
+        Column('gather_started', DateTime),
+        Column('gather_finished', DateTime),
+        Column('source_id', types.UnicodeText, ForeignKey('harvest_source.id')),
+        Column('status', types.UnicodeText, default=u'New', nullable=False),
+    )
+    # Was harvested_document
+    harvest_object_table = Table('harvest_object', metadata,
+        Column('id', types.UnicodeText, primary_key=True, default=make_uuid),
+        Column('guid', types.UnicodeText, default=''),
+        Column('created', DateTime, default=datetime.datetime.utcnow),
+        Column('content', types.UnicodeText, nullable=True),
+        Column('harvest_job_id', types.UnicodeText, ForeignKey('harvest_job.id')),
+        Column('fetch_started', DateTime),
+        Column('fetch_finished', DateTime),
+        Column('retry_times',types.Integer),
+        Column('package_id', types.UnicodeText, ForeignKey('package.id'), nullable=True),
+    )
+    # New table
+    harvest_gather_error_table = Table('harvest_gather_error',metadata,
+        Column('id', types.UnicodeText, primary_key=True, default=make_uuid),
+        Column('harvest_job_id', types.UnicodeText, ForeignKey('harvest_job.id')),
+        Column('message', types.UnicodeText),
+        Column('created', DateTime, default=datetime.datetime.utcnow),
+    )
+    # New table
+    harvest_object_error_table = Table('harvest_object_error',metadata,
+        Column('id', types.UnicodeText, primary_key=True, default=make_uuid),
+        Column('harvest_object_id', types.UnicodeText, ForeignKey('harvest_object.id')),
+        Column('message',types.UnicodeText),
+        Column('stage', types.UnicodeText),
+        Column('created', DateTime, default=datetime.datetime.utcnow),  
+    )
 
-mapper(
-    HarvestObject,
-    harvest_object_table,
-    properties={
-        'package':relation(
-            Package,
-            backref='harvest_objects',
-        ),
-        'job': relation(
-            HarvestJob,
-            backref=u'objects',
-        ),
-    },
-)
+    mapper(
+        HarvestSource,
+        harvest_source_table,
+        properties={
+            'jobs': relation(
+                HarvestJob,
+                backref=u'source',
+                order_by=harvest_job_table.c.created,
+            ),
+        },
+    )
 
-mapper(
-    HarvestGatherError,
-    harvest_gather_error_table,
-    properties={
-        'job':relation(
-            HarvestJob,
-            backref='gather_errors'
-        ),
-    },
-)
+    mapper(
+        HarvestJob,
+        harvest_job_table,
+    )
 
-mapper(
-    HarvestObjectError,
-    harvest_object_error_table,
-    properties={
-        'object':relation(
-            HarvestObject,
-            backref='errors'
-        ),
-    },
-)
+    mapper(
+        HarvestObject,
+        harvest_object_table,
+        properties={
+            'package':relation(
+                Package,
+                backref='harvest_objects',
+            ),
+            'job': relation(
+                HarvestJob,
+                backref=u'objects',
+            ),
+        },
+    )
+
+    mapper(
+        HarvestGatherError,
+        harvest_gather_error_table,
+        properties={
+            'job':relation(
+                HarvestJob,
+                backref='gather_errors'
+            ),
+        },
+    )
+
+    mapper(
+        HarvestObjectError,
+        harvest_object_error_table,
+        properties={
+            'object':relation(
+                HarvestObject,
+                backref='errors'
+            ),
+        },
+    )
