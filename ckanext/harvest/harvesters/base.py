@@ -8,7 +8,7 @@ from ckan.logic.action.create import package_create_rest
 from ckan.logic.action.update import package_update_rest
 from ckan.logic.action.get import package_show
 from ckan.logic.schema import default_package_schema
-from ckan.lib.navl.validators import ignore_missing
+from ckan.lib.navl.validators import ignore_missing,ignore
 from ckan.lib.munge import munge_title_to_name, munge_tag
 
 from ckanext.harvest.model import HarvestJob, HarvestObject, HarvestGatherError, \
@@ -91,7 +91,8 @@ class HarvesterBase(SingletonPlugin):
             #pprint(package_dict)
             ## change default schema
             schema = default_package_schema()
-            schema["id"] = [ignore_missing, unicode]
+            schema['id'] = [ignore_missing, unicode]
+            schema['__junk'] = [ignore]
 
             context = {
                 'model': model,
