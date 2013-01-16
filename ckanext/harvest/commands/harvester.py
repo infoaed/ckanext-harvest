@@ -93,12 +93,14 @@ class Harvester(CkanCommand):
             from ckanext.harvest.queue import get_gather_consumer
             logging.getLogger('amqplib').setLevel(logging.INFO)
             consumer = get_gather_consumer()
+            logging.getLogger('ckan.cli').info('Now going to wait on the gather queue...')
             consumer.wait()
         elif cmd == 'fetch_consumer':
             import logging
             logging.getLogger('amqplib').setLevel(logging.INFO)
             from ckanext.harvest.queue import get_fetch_consumer
             consumer = get_fetch_consumer()
+            logging.getLogger('ckan.cli').info('Now going to wait on the fetch queue...')
             consumer.wait()
         elif cmd == 'initdb':
             self.initdb()

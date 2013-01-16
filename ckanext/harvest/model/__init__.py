@@ -101,7 +101,9 @@ class HarvestSource(HarvestDomainObject):
        or "inactive". The harvesting processes are not fired on inactive
        sources.
     '''
-    pass
+    def __repr__(self):
+        return '<HarvestSource id=%s title=%s url=%s active=%r>' % \
+               (self.id, self.title, self.url, self.active)
 
 class HarvestJob(HarvestDomainObject):
     '''A Harvesting Job is performed in two phases. In first place, the
@@ -114,7 +116,9 @@ class HarvestJob(HarvestDomainObject):
        (``HarvestObjectError``) are stored in the ``harvest_object_error``
        table.
     '''
-    pass
+    def __repr__(self):
+        return '<HarvestJob id=%s source_id=%s status=%s created=%r>' % \
+               (self.id, self.source_id, self.status, self.created.strftime('%Y-%m-%d %H:%M'))
 
 class HarvestObject(HarvestDomainObject):
     '''A Harvest Object is created every time an element is fetched from a
@@ -122,6 +126,9 @@ class HarvestObject(HarvestDomainObject):
        packages, RDF graphs, etc.
 
     '''
+    def __repr__(self):
+        return '<HarvestObject id=%s guid=%s current=%r content=%s... package_id=%s>' % \
+               (self.id, self.guid, self.current, self.content[:10], self.package_id)
 
 class HarvestGatherError(HarvestDomainObject):
     '''Gather errors are raised during the **gather** stage of a harvesting

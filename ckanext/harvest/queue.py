@@ -1,5 +1,6 @@
 import logging
 import datetime
+import socket
 
 from carrot.connection import BrokerConnection
 from carrot.messaging import Publisher
@@ -52,13 +53,18 @@ def get_publisher(routing_key):
                      routing_key=routing_key)
 
 def get_consumer(queue_name, routing_key):
-    return Consumer(connection=get_carrot_connection(),
-                    queue=queue_name,
-                    routing_key=routing_key,
-                    exchange=EXCHANGE_NAME,
-                    exchange_type=EXCHANGE_TYPE,
-                    durable=True, auto_delete=False)
-
+    connection = get_carrot_connection()
+    try:
+        return Consumer(connection=connection,
+                        queue=queue_name,
+                        routing_key=routing_key,
+                        exchange=EXCHANGE_NAME,
+                        exchange_type=EXCHANGE_TYPE,
+                        durable=True, auto_delete=False)
+    except socket.error, e:
+        log.error('Error connecting to RabbitMQ with settings: %r',
+                  connection.__dict__)
+        raise
 
 def gather_callback(message_data,message):
     try:
