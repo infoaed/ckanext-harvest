@@ -28,6 +28,7 @@ __all__ = [
     'HarvestObject', 'harvest_object_table',
     'HarvestGatherError', 'harvest_gather_error_table',
     'HarvestObjectError', 'harvest_object_error_table',
+    'HarvestCoupledResource', 'harvest_coupled_resource_table',
 ]
 
 
@@ -36,6 +37,7 @@ harvest_job_table = None
 harvest_object_table = None
 harvest_gather_error_table = None
 harvest_object_error_table = None
+harvest_coupled_resource_table = None
 
 def setup():
 
@@ -53,6 +55,7 @@ def setup():
             harvest_object_table.create()
             harvest_gather_error_table.create()
             harvest_object_error_table.create()
+            harvest_coupled_resource_table.create()
 
             log.debug('Harvest tables created')
         else:
@@ -62,8 +65,12 @@ def setup():
             inspector = Inspector.from_engine(engine)
             columns = inspector.get_columns('harvest_source')
             if not 'title' in [column['name'] for column in columns]:
-                log.debug('Harvest tables need to be updated')
+                log.debug('Harvest tables updating to v2')
                 migrate_v2()
+            columns = inspector.get_columns('harvest_object')
+            if not 'harvest_source_reference' in [column['name'] for column in columns]:
+                log.debug('Harvest tables updating to v3_dgu')
+                migrate_v3_dgu()
 
     else:
         log.debug('Harvest table creation deferred')
@@ -104,6 +111,8 @@ class HarvestSource(HarvestDomainObject):
     def __repr__(self):
         return '<HarvestSource id=%s title=%s url=%s active=%r>' % \
                (self.id, self.title, self.url, self.active)
+    def __str__(self):
+        return str(self.__repr__())
 
 class HarvestJob(HarvestDomainObject):
     '''A Harvesting Job is performed in two phases. In first place, the
@@ -119,6 +128,8 @@ class HarvestJob(HarvestDomainObject):
     def __repr__(self):
         return '<HarvestJob id=%s source_id=%s status=%s created=%r>' % \
                (self.id, self.source_id, self.status, self.created.strftime('%Y-%m-%d %H:%M'))
+    def __str__(self):
+        return str(self.__repr__())
 
 class HarvestObject(HarvestDomainObject):
     '''A Harvest Object is created every time an element is fetched from a
@@ -129,6 +140,8 @@ class HarvestObject(HarvestDomainObject):
     def __repr__(self):
         return '<HarvestObject id=%s guid=%s current=%r content=%s... package_id=%s>' % \
                (self.id, self.guid, self.current, self.content[:10], self.package_id)
+    def __str__(self):
+        return str(self.__repr__())
 
 class HarvestGatherError(HarvestDomainObject):
     '''Gather errors are raised during the **gather** stage of a harvesting
@@ -141,6 +154,46 @@ class HarvestObjectError(HarvestDomainObject):
        harvesting job, and are referenced to a specific harvest object.
     '''
     pass
+
+class HarvestCoupledResource(HarvestDomainObject):
+    '''A Harvest Coupled Resource aims to link two packages - a service record
+    and a dataset record (or series record).
+
+    Both packages have embedded in them the details of the value for the
+    harvest_source_reference, and this table exposes them.
+    The value of the harvest_source_reference is determined by the metadata
+    standard:
+    * INSPIRE says it is the Unique Resource Locator of the metadata
+    * Gemini2 says it is the CSW GetRecordById URL, or WAF metadata file URL
+
+    When a service record is harvested, for each couple\'s
+    harvest_source_reference and service_record_package_id combination there
+    should be one HarvestCoupledResource object.
+
+    When a dataset or series record is harvested, for its
+    harvest_source_reference and datset_record_package_id combination there
+    should be a HarvestCoupledResource object.
+
+    Once all records are harvested, all HarvestCoupledResource objects should
+    have both service_record_package_id and dataset_record_package_id values
+    filled in, detailing all the couplings.
+    '''
+    def __repr__(self):
+        dataset_record = self.dataset_record_package_id
+        if dataset_record:
+            dataset = model.Package.get(dataset_record)
+            if dataset:
+                dataset_record = dataset.name
+        service_record = self.service_record_package_id
+        if service_record:
+            service = model.Package.get(service_record)
+            if service:
+                service_record = service.name
+        return '<HarvestObject id=%s dataset_record=%s harvest_source_reference=%s dataset_record=%s>' % \
+               (self.id, dataset_record, self.harvest_source_reference,
+                service_record)
+    def __str__(self):
+        return str(self.__repr__())
 
 def harvest_object_before_insert_listener(mapper,connection,target):
     '''
@@ -161,6 +214,7 @@ def define_harvester_tables():
     global harvest_object_table
     global harvest_gather_error_table
     global harvest_object_error_table
+    global harvest_coupled_resource_table
 
     harvest_source_table = Table('harvest_source', metadata,
         Column('id', types.UnicodeText, primary_key=True, default=make_uuid),
@@ -196,6 +250,7 @@ def define_harvester_tables():
         Column('retry_times',types.Integer),
         Column('harvest_job_id', types.UnicodeText, ForeignKey('harvest_job.id')),
         Column('harvest_source_id', types.UnicodeText, ForeignKey('harvest_source.id')),
+        Column('harvest_source_reference', types.UnicodeText), # id according to the Harvest Source, for Gemini Coupled Resources
         Column('package_id', types.UnicodeText, ForeignKey('package.id'), nullable=True),
     )
     # New table
@@ -212,6 +267,12 @@ def define_harvester_tables():
         Column('message',types.UnicodeText),
         Column('stage', types.UnicodeText),
         Column('created', types.DateTime, default=datetime.datetime.utcnow),
+    )
+    harvest_coupled_resource_table = Table('harvest_coupled_resource',metadata,
+        Column('id', types.UnicodeText, primary_key=True, default=make_uuid),
+        Column('service_record_package_id', types.UnicodeText, ForeignKey('package.id'), nullable=True),
+        Column('harvest_source_reference', types.UnicodeText, nullable=False),
+        Column('dataset_record_package_id', types.UnicodeText, ForeignKey('package.id'), nullable=True),
     )
 
     mapper(
@@ -277,6 +338,25 @@ def define_harvester_tables():
         },
     )
 
+    mapper(
+        HarvestCoupledResource,
+        harvest_coupled_resource_table,
+        properties={
+            'service_record':relation(
+                Package,
+                primaryjoin=harvest_coupled_resource_table.c.service_record_package_id == Package.id,
+                lazy=True,
+                backref='coupled_dataset',
+            ),
+            'dataset_record':relation(
+                Package,
+                primaryjoin=harvest_coupled_resource_table.c.dataset_record_package_id == Package.id,
+                lazy=True,
+                backref='coupled_service',
+            ),
+        },
+    )
+
     event.listen(HarvestObject, 'before_insert', harvest_object_before_insert_listener)
 
 def migrate_v2():
@@ -319,3 +399,21 @@ def migrate_v2():
 
     Session.commit()
     log.info('Harvest tables migrated to v2')
+
+def migrate_v3_dgu():
+    log.debug('Migrating harvest tables to v3_dgu.')
+    conn = Session.connection()
+    statement = 'ALTER TABLE harvest_object ADD COLUMN harvest_source_reference text;'
+    conn.execute(statement)
+    update_statement = '''
+    UPDATE harvest_object
+    SET harvest_source_reference = guid
+    '''
+    conn.execute(update_statement)
+    # This is fine for CSWs, but any WAFs will need a manual migration using
+    # coupled_resources.py, since the WAF ids don\'t exist in the tables.
+
+    harvest_coupled_resource_table.create()
+
+    Session.commit()
+    log.info('Harvest tables migrated to v3_dgu')
