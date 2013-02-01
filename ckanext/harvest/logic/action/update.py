@@ -1,3 +1,5 @@
+import hashlib
+
 import logging
 
 from ckan.plugins import PluginImplementations
@@ -45,6 +47,8 @@ def harvest_source_update(context,data_dict):
     fields = ['url','title','type','description','user_id','publisher_id']
     for f in fields:
         if f in data and data[f] is not None:
+            if f == 'url':
+                data[f] = data[f].strip()
             source.__setattr__(f,data[f])
 
     if 'active' in data_dict:
@@ -81,6 +85,10 @@ def harvest_objects_import(context,data_dict):
     session = context['session']
     source_id = data_dict.get('source_id',None)
 
+    segments = context.get('segments',None)
+
+    join_datasets = context.get('join_datasets',True)
+
     if source_id:
         source = HarvestSource.get(source_id)
         if not source:
@@ -92,30 +100,37 @@ def harvest_objects_import(context,data_dict):
             raise Exception('This harvest source is not active')
 
         last_objects_ids = session.query(HarvestObject.id) \
-                .join(HarvestSource).join(Package) \
+                .join(HarvestSource) \
                 .filter(HarvestObject.source==source) \
-                .filter(HarvestObject.current==True) \
-                .filter(Package.state==u'active') \
-                .all()
+                .filter(HarvestObject.current==True)
+
     else:
         last_objects_ids = session.query(HarvestObject.id) \
-                .join(Package) \
                 .filter(HarvestObject.current==True) \
-                .filter(Package.state==u'active') \
-                .all()
 
-    last_objects = []
+    if join_datasets:
+        last_objects_ids = last_objects_ids.join(Package) \
+            .filter(Package.state==u'active')
+
+    last_objects_ids = last_objects_ids.all()
+
+    last_objects_count = 0
+
     for obj_id in last_objects_ids:
+        if segments and str(hashlib.md5(obj_id[0]).hexdigest())[0] not in segments:
+            continue
+
         obj = session.query(HarvestObject).get(obj_id)
+
         for harvester in PluginImplementations(IHarvester):
             if harvester.info()['name'] == obj.source.type:
                 if hasattr(harvester,'force_import'):
                     harvester.force_import = True
                 harvester.import_stage(obj)
                 break
-        last_objects.append(harvest_object_dictize(obj,context))
-    log.info('Harvest objects imported: %r', last_objects)
-    return last_objects
+        last_objects_count += 1
+    log.info('Harvest objects imported: %s', last_objects_count)
+    return last_objects_count
 
 def harvest_jobs_run(context,data_dict):
     log.info('Harvest job run: %r', data_dict)
