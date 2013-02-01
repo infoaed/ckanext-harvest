@@ -76,7 +76,7 @@
             <th>Total jobs</th>
             <td>${c.source.status.job_count}</td>
         </tr>
-        <tr>
+        <tr class="harvest-status">
             <th>Status</th>
             <td>
                 <a name="errors"/>Last Harvest Errors: ${c.source.status.last_harvest_statistics.errors}<br/>
@@ -88,7 +88,7 @@
                             <?python
                                 lines = error.split('\n')
                             ?>
-                            <div py:for="line in lines">${line}</div>
+                            <div py:for="line in lines" class="message">${line}</div>
                         </li>
                         </ul>
                     </py:when>
@@ -102,7 +102,7 @@
                             <?python
                                 lines = error['message'].split('\n')
                             ?>
-                            <div py:for="line in lines">${line}</div>
+                            <div py:for="line in lines" class="message">${line}</div>
                         </li>
                         </ul>
                     </py:when>

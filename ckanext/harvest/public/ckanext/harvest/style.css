@@ -81,3 +81,6 @@ body.index.ViewController .content-outer {
     font-weight: bold;
 }
 
+.harvest-content .message {
+    padding-top: 5px;
+}
