@@ -139,7 +139,8 @@ class HarvestObject(HarvestDomainObject):
     '''
     def __repr__(self):
         return '<HarvestObject id=%s guid=%s current=%r content=%s... package_id=%s>' % \
-               (self.id, self.guid, self.current, self.content[:10], self.package_id)
+               (self.id, self.guid, self.current,
+                self.content[:10] if self.content else '', self.package_id)
     def __str__(self):
         return str(self.__repr__())
 
@@ -194,6 +195,21 @@ class HarvestCoupledResource(HarvestDomainObject):
                 service_record)
     def __str__(self):
         return str(self.__repr__())
+
+    @classmethod
+    def get_by_harvest_source_reference(cls, harvest_source_reference):
+        return Session.query(HarvestCoupledResource) \
+               .filter_by(harvest_source_reference=harvest_source_reference)
+
+    @classmethod
+    def get_by_service_record(cls, service_record_package):
+        return Session.query(HarvestCoupledResource) \
+               .filter_by(service_record=service_record_package)
+
+    @classmethod
+    def get_by_dataset_record(cls, dataset_record_package):
+        return Session.query(HarvestCoupledResource) \
+               .filter_by(dataset_record=dataset_record_package)
 
 def harvest_object_before_insert_listener(mapper,connection,target):
     '''
