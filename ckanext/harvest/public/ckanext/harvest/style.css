@@ -84,3 +84,6 @@ body.index.ViewController .content-outer {
 .harvest-content .message {
     padding-top: 5px;
 }
+.harvest-content .message-section {
+    padding-bottom: 15px;
+}

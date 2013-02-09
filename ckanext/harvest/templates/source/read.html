@@ -98,11 +98,12 @@
                        <i>Object errors</i>
                         <ul>
                         <li py:for="error in c.source.status.last_harvest_errors.object">
-                            <div>GUID <a href="${g.site_url}/harvest/object/${error.object_id}">${error.object_guid}</a></div>
-                            <?python
-                                lines = error['message'].split('\n')
-                            ?>
-                            <div py:for="line in lines" class="message">${line}</div>
+                            <div class="message">Harvest of GUID <a href="${g.site_url}/harvest/object/${error.object_id}">${error.object_guid}</a></div>
+                            <div py:for="section in error['message'].split('\n\n')" class="message-section">
+                              <div py:for="line in section.split('\n')" class="message">
+                                ${line}
+                              </div>
+                            </div>
                         </li>
                         </ul>
                     </py:when>

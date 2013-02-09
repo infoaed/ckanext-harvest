@@ -98,7 +98,6 @@ def harvest_job_list(context,data_dict):
     return [harvest_job_dictize(job,context) for job in jobs]
 
 def harvest_object_show(context,data_dict):
-
     check_access('harvest_object_show',context,data_dict)
 
     id = data_dict.get('id')
