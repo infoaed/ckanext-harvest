@@ -40,7 +40,7 @@ class Harvester(CkanCommand):
       harvester fetch_consumer
         - starts the consumer for the fetching queue
 
-      harvester [-j] [--segments={segments}] import [source {source-id} | object {object-id} | guid {GUID}]
+      harvester [-j] [--segments={segments}] import [source_id {source-id} | object_id {object-id} | guid {GUID}]
         - perform the import stage with the last fetched objects, optionally belonging to a certain source
           or object.
           Please note that no objects will be fetched from the remote server. It will only affect
@@ -248,8 +248,8 @@ class Harvester(CkanCommand):
         #print 'Sent %s jobs to the gather queue' % len(jobs)
 
     def import_stage(self):
-        id_name = None
-        id_types = ('source', 'object', 'guid')
+        id_ = None
+        id_types = ('source_id', 'object_id', 'guid')
         if len(self.args) == 1:
             # i.e all sources/objects
             pass
@@ -258,16 +258,16 @@ class Harvester(CkanCommand):
             sys.exit(1)
         elif len(self.args) == 3:
             id_type = self.args[1]
-            if id_type == 'source':
-                id_ = unicode(self.args[2])
-            elif id_type == 'object':
-                id_ = unicode(self.args[2])
-            elif id_type == 'guid':
-                id_ = unicode(self.args[2])
-            else:
+            if id_type not in id_types:
                 print 'ERROR: ID type "%s" not allowed. Choose from: %s' % \
                       (id_type, id_types)
                 sys.exit(1)
+            if id_type == 'source_id':
+                id_ = unicode(self.args[2])
+            elif id_type == 'object_id':
+                id_ = unicode(self.args[2])
+            elif id_type == 'guid':
+                id_ = unicode(self.args[2])
 
         context = {'model': model, 'session':model.Session, 'user': self.admin_user['name'],
                    'join_datasets': not self.options.no_join_datasets,
