@@ -84,12 +84,17 @@ def harvest_objects_import(context,data_dict):
     model = context['model']
     session = context['session']
     source_id = data_dict.get('source_id',None)
+    object_id = data_dict.get('object_id',None)
 
     segments = context.get('segments',None)
 
     join_datasets = context.get('join_datasets',True)
 
-    if source_id:
+    if object_id:
+        last_objects_ids = session.query(HarvestObject.id) \
+                .filter(HarvestObject.id==object_id) \
+                .filter(HarvestObject.current==True)
+    elif source_id:
         source = HarvestSource.get(source_id)
         if not source:
             log.error('Harvest source %s does not exist', source_id)

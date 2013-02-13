@@ -40,8 +40,9 @@ class Harvester(CkanCommand):
       harvester fetch_consumer
         - starts the consumer for the fetching queue
 
-      harvester [-j] [--segments={segments}] import [{source-id}]
-        - perform the import stage with the last fetched objects, optionally belonging to a certain source.
+      harvester [-j] [--segments={segments}] import [{source-id|object-id}]
+        - perform the import stage with the last fetched objects, optionally belonging to a certain source
+          or object.
           Please note that no objects will be fetched from the remote server. It will only affect
           the last fetched objects already present in the database.
 
@@ -247,20 +248,28 @@ class Harvester(CkanCommand):
         #print 'Sent %s jobs to the gather queue' % len(jobs)
 
     def import_stage(self):
-
-        if len(self.args) >= 2:
-            source_id = unicode(self.args[1])
-        else:
-            source_id = None
+        source_id = None
+        object_id = None
+        if len(self.args) == 1:
+            # i.e all sources/objects
+            pass
+        elif len(self.args) == 2:
+            print 'ERROR: Specify "source" or "object"'
+            sys.exit(1)
+        elif len(self.args) == 3:
+            if self.args[1] == 'source':
+                source_id = unicode(self.args[2])
+            elif self.args[1] == 'object':
+                object_id = unicode(self.args[2])
 
         context = {'model': model, 'session':model.Session, 'user': self.admin_user['name'],
                    'join_datasets': not self.options.no_join_datasets,
                    'segments': self.options.segments}
 
+        num_objs = get_action('harvest_objects_import')(context,{'source_id':source_id,
+                                                                 'object_id':object_id})
 
-        objs = get_action('harvest_objects_import')(context,{'source_id':source_id})
-
-        print '%s objects reimported' % len(objs)
+        print '%s objects reimported' % num_objs
 
     def create_harvest_job_all(self):
         context = {'model': model, 'user': self.admin_user['name'], 'session':model.Session}
