@@ -40,7 +40,7 @@ class Harvester(CkanCommand):
       harvester fetch_consumer
         - starts the consumer for the fetching queue
 
-      harvester [-j] [--segments={segments}] import [{source-id|object-id}]
+      harvester [-j] [--segments={segments}] import [source {source-id} | object {object-id} | guid {GUID}]
         - perform the import stage with the last fetched objects, optionally belonging to a certain source
           or object.
           Please note that no objects will be fetched from the remote server. It will only affect
@@ -248,26 +248,33 @@ class Harvester(CkanCommand):
         #print 'Sent %s jobs to the gather queue' % len(jobs)
 
     def import_stage(self):
-        source_id = None
-        object_id = None
+        id_name = None
+        id_types = ('source', 'object', 'guid')
         if len(self.args) == 1:
             # i.e all sources/objects
             pass
         elif len(self.args) == 2:
-            print 'ERROR: Specify "source" or "object"'
+            print 'ERROR: Specify ID type: %s' % id_types
             sys.exit(1)
         elif len(self.args) == 3:
-            if self.args[1] == 'source':
-                source_id = unicode(self.args[2])
-            elif self.args[1] == 'object':
-                object_id = unicode(self.args[2])
+            id_type = self.args[1]
+            if id_type == 'source':
+                id_ = unicode(self.args[2])
+            elif id_type == 'object':
+                id_ = unicode(self.args[2])
+            elif id_type == 'guid':
+                id_ = unicode(self.args[2])
+            else:
+                print 'ERROR: ID type "%s" not allowed. Choose from: %s' % \
+                      (id_type, id_types)
+                sys.exit(1)
 
         context = {'model': model, 'session':model.Session, 'user': self.admin_user['name'],
                    'join_datasets': not self.options.no_join_datasets,
                    'segments': self.options.segments}
 
-        num_objs = get_action('harvest_objects_import')(context,{'source_id':source_id,
-                                                                 'object_id':object_id})
+        data_dict = {id_type: id_} if id_ else {}
+        num_objs = get_action('harvest_objects_import')(context, data_dict)
 
         print '%s objects reimported' % num_objs
 

@@ -85,6 +85,7 @@ def harvest_objects_import(context,data_dict):
     session = context['session']
     source_id = data_dict.get('source_id',None)
     object_id = data_dict.get('object_id',None)
+    guid = data_dict.get('guid',None)
 
     segments = context.get('segments',None)
 
@@ -93,6 +94,10 @@ def harvest_objects_import(context,data_dict):
     if object_id:
         last_objects_ids = session.query(HarvestObject.id) \
                 .filter(HarvestObject.id==object_id) \
+                .filter(HarvestObject.current==True)
+    elif guid:
+        last_objects_ids = session.query(HarvestObject.id) \
+                .filter(HarvestObject.guid==guid) \
                 .filter(HarvestObject.current==True)
     elif source_id:
         source = HarvestSource.get(source_id)
