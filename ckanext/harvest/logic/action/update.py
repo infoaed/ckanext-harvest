@@ -150,13 +150,16 @@ def harvest_jobs_run(context,data_dict):
 
     # Check if there are pending harvest jobs
     jobs = harvest_job_list(context,{'source_id':source_id,'status':u'New'})
+    HarvestLog.info('run', 'Number of jobs: %i', len(jobs))
+    sent_jobs = []
     if len(jobs) == 0:
         log.info('No new harvest jobs.')
-        raise Exception('There are no new harvesting jobs')
+        return sent_jobs # i.e. []
+        # Do not raise an exception as that will cause cron (which runs
+        # this) to produce an error email.
 
     # Send each job to the gather queue
     publisher = get_gather_publisher()
-    sent_jobs = []
     for job in jobs:
         context['detailed'] = False
         source = harvest_source_show(context,{'id':job['source']})
@@ -166,5 +169,9 @@ def harvest_jobs_run(context,data_dict):
             sent_jobs.append(job)
 
     publisher.close()
+
+    # Record the running in harvest_status
+    HarvestLog.info('run', '%i jobs sent to harvest', len(sent_jobs))
+
     return sent_jobs
 

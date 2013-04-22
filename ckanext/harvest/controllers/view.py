@@ -14,7 +14,7 @@ from ckan.lib.base import BaseController, c, g, request, \
 from ckan.lib.navl.dictization_functions import DataError
 from ckan.logic import NotFound, ValidationError, get_action, NotAuthorized
 from ckanext.harvest.logic.schema import harvest_source_form_schema
-
+from ckanext.harvest.lib import HarvestError
 from ckan.lib.helpers import Page,pager_url
 
 import logging
@@ -52,7 +52,7 @@ class ViewController(BaseController):
 
 
     def index(self):
-        context = {'model':model, 'user':c.user,'session':model.Session}
+        context = {'model': model, 'user': c.user, 'session': model.Session}
         try:
             # Request all harvest sources
             c.sources = get_action('harvest_source_list')(context,{})
@@ -221,9 +221,13 @@ class ViewController(BaseController):
             abort(404,_('Harvest source not found'))
         except NotAuthorized,e:
             abort(401,self.not_auth_message)
-        except Exception, e:
-            msg = 'An error occurred: [%s]' % e.message
+        except HarvestError, e:
+            msg = 'Could not create harvest job: %s' % str(e)
             h.flash_error(msg)
+        except Exception, e:
+            msg = 'An error occurred: [%s]' % str(e)
+            h.flash_error(msg)
+            raise
 
         redirect(h.url_for('harvest'))
 

@@ -9,6 +9,7 @@ from ckanext.harvest.logic.schema import default_harvest_source_schema
 from ckanext.harvest.logic.dictization import (harvest_source_dictize,
                                                harvest_job_dictize)
 from ckanext.harvest.logic.action.get import harvest_source_list,harvest_job_list
+from ckanext.harvest.lib import HarvestError
 
 log = logging.getLogger(__name__)
 
@@ -60,7 +61,7 @@ def harvest_job_create(context,data_dict):
     # Check if the source is active
     if not source.active:
         log.warn('Harvest job cannot be created for inactive source %s', source_id)
-        raise Exception('Can not create jobs on inactive sources')
+        raise HarvestError('Can not create jobs on inactive sources')
 
     # Check if there already is an unrun job for this source
     data_dict ={
@@ -70,7 +71,7 @@ def harvest_job_create(context,data_dict):
     exists = harvest_job_list(context,data_dict)
     if len(exists):
         log.warn('There is already an unrun job %r for this source %s', exists, source_id)
-        raise Exception('There already is an unrun job for this source')
+        raise HarvestError('There already is an unrun job for this source')
 
     job = HarvestJob()
     job.source = source

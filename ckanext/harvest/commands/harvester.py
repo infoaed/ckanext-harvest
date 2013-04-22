@@ -254,7 +254,7 @@ class Harvester(CkanCommand):
             # i.e all sources/objects
             pass
         elif len(self.args) == 2:
-            print 'ERROR: Specify ID type: %s' % id_types
+            print 'ERROR: Specify ID type: %s' % str(id_types)
             sys.exit(1)
         elif len(self.args) == 3:
             id_type = self.args[1]
