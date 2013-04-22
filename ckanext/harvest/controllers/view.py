@@ -227,7 +227,6 @@ class ViewController(BaseController):
         except Exception, e:
             msg = 'An error occurred: [%s]' % str(e)
             h.flash_error(msg)
-            raise
 
         redirect(h.url_for('harvest'))
 
