@@ -76,9 +76,6 @@ def setup():
         log.debug('Harvest table creation deferred')
 
 
-class HarvestError(Exception):
-    pass
-
 class HarvestDomainObject(DomainObject):
     '''Convenience methods for searching objects
     '''
