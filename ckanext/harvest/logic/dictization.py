@@ -16,8 +16,8 @@ def harvest_source_dictize(source, context):
         if group:
             out['publisher_title'] = group.title
 
-    out['status'] = _get_source_status(source, context)
-
+    if context.get('include_status', True):
+        out['status'] = _get_source_status(source, context)
 
     return out
 
@@ -89,7 +89,7 @@ def _get_source_status(source, context):
         #TODO: Should we encode the dates as strings?
         out['last_harvest_request'] = str(last_job.gather_finished)
 
-        #Get HarvestObjects from last job whit links to packages
+        #Get HarvestObjects from last job with links to packages
         if detailed:
             last_objects = [obj for obj in last_job.objects if obj.package is not None]
 

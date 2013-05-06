@@ -60,7 +60,11 @@ def harvest_source_for_a_dataset(context, data_dict):
     if not source:
         raise NotFound
 
-    return harvest_source_dictize(source,context)
+    if not context.get('include_status'):
+        # By default we don't want to know the harvest
+        # source status - this is an expensive call.
+        context['include_status'] = False
+    return harvest_source_dictize(source, context)
 
 def harvest_job_show(context,data_dict):
 
