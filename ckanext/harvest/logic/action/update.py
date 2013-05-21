@@ -150,7 +150,7 @@ def harvest_jobs_run(context,data_dict):
 
     # Check if there are pending harvest jobs
     jobs = harvest_job_list(context,{'source_id':source_id,'status':u'New'})
-    HarvestLog.info('run', 'Number of jobs: %i', len(jobs))
+    log.info('Number of jobs: %i', len(jobs))
     sent_jobs = []
     if len(jobs) == 0:
         log.info('No new harvest jobs.')
@@ -171,7 +171,7 @@ def harvest_jobs_run(context,data_dict):
     publisher.close()
 
     # Record the running in harvest_status
-    HarvestLog.info('run', '%i jobs sent to harvest', len(sent_jobs))
+    log.info('%i jobs sent to the gather queue to be harvested', len(sent_jobs))
 
     return sent_jobs
 

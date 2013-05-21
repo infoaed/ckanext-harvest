@@ -76,9 +76,10 @@ def gather_callback(message_data,message):
 
         try:
             job = HarvestJob.get(id)
-        except:
-            log.error('Harvest job does not exist: %s' % id)
-        else:
+            if not job:
+                log.error('Harvest job does not exist: %s' % id)
+                return
+
             # Send the harvest job to the plugins that implement
             # the Harvester interface, only if the source type
             # matches
