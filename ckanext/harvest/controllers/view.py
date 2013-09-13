@@ -33,20 +33,20 @@ class ViewController(BaseController):
     def _get_publishers(self):
         groups = None
 
-        if c.publisher_auth:
-            if ckan.new_authz.is_sysadmin(c.user):
-                groups = Group.all(group_type='organization')
-            elif c.userobj:
-                groups = c.userobj.get_groups('organization')
-            else: # anonymous user shouldn't have access to this page anyway.
-                groups = []
+        #if c.publisher_auth:
+        if ckan.new_authz.is_sysadmin(c.user):
+            groups = Group.all(group_type='organization')
+        elif c.userobj:
+            groups = c.userobj.get_groups('organization')
+        else: # anonymous user shouldn't have access to this page anyway.
+            groups = []
 
-            # Be explicit about which fields we make available in the template
-            groups = [ {
-                'name': g.name,
-                'id': g.id,
-                'title': g.title,
-            } for g in groups ]
+        # Be explicit about which fields we make available in the template
+        groups = [ {
+            'name': g.name,
+            'id': g.id,
+            'title': g.title,
+        } for g in groups ]
 
         return groups
 
@@ -176,8 +176,10 @@ class ViewController(BaseController):
             if c.userobj:
                 data_dict['user_id'] = c.userobj.id
         if keys_in_schema - set(data_dict.keys()):
-            log.info(_('Incorrect form fields posted'))
-            raise DataError(data_dict)
+            err = "%s, %s" % (data_dict.keys(), keys_in_schema,)
+            raise Exception(err)
+            #log.info(_('Incorrect form fields posted'))
+            #raise DataError(data_dict)
 
     def read(self,id):
         try:
