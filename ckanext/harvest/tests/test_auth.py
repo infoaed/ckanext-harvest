@@ -161,9 +161,9 @@ class TestAuthPublisherProfile(FunctionalTestCase,HarvestAuthBaseCase):
 
         # Create two Publishers
         rev = model.repo.new_revision()
-        self.publisher1 = model.Group(name=u'test-publisher1',title=u'Test Publihser 1',type=u'publisher')
+        self.publisher1 = model.Group(name=u'test-publisher1',title=u'Test Publihser 1',type=u'organization')
         Session.add(self.publisher1)
-        self.publisher2 = model.Group(name=u'test-publisher2',title=u'Test Publihser 2',type=u'publisher')
+        self.publisher2 = model.Group(name=u'test-publisher2',title=u'Test Publihser 2',type=u'organization')
         Session.add(self.publisher2)
 
         member1 = model.Member(table_name = 'user',
