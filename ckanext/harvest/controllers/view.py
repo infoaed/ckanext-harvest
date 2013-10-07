@@ -28,7 +28,7 @@ class ViewController(BaseController):
 
         super(ViewController,self).__before__(action, **params)
 
-        c.publisher_auth = (config.get('ckan.harvest.auth.profile',None) == 'publisher')
+        c.publisher_auth = True # for DGU... (config.get('ckan.harvest.auth.profile',None) == 'publisher')
 
     def _get_publishers(self):
         groups = None
