@@ -38,11 +38,12 @@ class Harvest(SingletonPlugin):
 
             # If we are using the publisher auth profile, make sure CKAN core
             # also uses it.
-            if auth_profile == 'publisher' and \
-                not config.get('ckan.auth.profile','') == 'publisher':
-                raise Exception('You must enable the "publisher" auth profile'
-                      +' in CKAN in order to use it on the harvest extension'
-                      +' (adding "ckan.auth.profile=publisher" to your ini file)')
+            # (commented out for DGU to work with CKAN2)
+            #if auth_profile == 'publisher' and \
+            #    not config.get('ckan.auth.profile','') == 'publisher':
+            #    raise Exception('You must enable the "publisher" auth profile'
+            #          +' in CKAN in order to use it on the harvest extension'
+            #          +' (adding "ckan.auth.profile=publisher" to your ini file)')
 
         # Setup harvest model
         model_setup()
