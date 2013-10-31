@@ -117,6 +117,7 @@ class ViewController(BaseController):
             return self._save_edit(id)
 
 
+        old_data = None
         if not data:
             try:
                 context = {'model':model, 'user':c.user}
@@ -136,8 +137,10 @@ class ViewController(BaseController):
         except NotAuthorized,e:
             abort(401,self.not_auth_message)
 
+
         vars = {'data': data, 'errors': errors, 'error_summary': error_summary, 'harvesters': harvesters_info}
 
+        c.source_title = old_data.get('title') if old_data else ''
         c.source_id = id
         c.groups = self._get_publishers()
         c.form = render('source/new_source_form.html', extra_vars=vars)

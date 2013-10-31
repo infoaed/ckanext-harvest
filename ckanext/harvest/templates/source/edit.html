@@ -13,11 +13,13 @@
   <py:match path="breadcrumbs">
     <li><a href="/data/search">Datasets</a></li>
     <li><a href="/harvest">Harvest sources</a></li>
-    <li><a href="/harvest/edit/${c.source_id}">Edit source</a></li>
+    <li><a href="/harvest/edit/${c.source_id}">Edit</a></li>
+
   </py:match>
 
 
     <div py:match="content">
+        <h1>Edit harvest source <small py:if="c.source_title">${c.source_title}</small></h1>
         <div class="harvest-content boxed">
             ${h.literal(c.form)}
         </div>
