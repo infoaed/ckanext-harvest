@@ -43,7 +43,7 @@ def harvest_source_list(context,data_dict):
 
         # Only users belonging to a publisher can list sources,
         # unless they are sysadmins
-        if ckan.new_authz.is_sysadmin(user_obj):
+        if user_obj.sysadmin:
             return {'success': True}
         if len(user_obj.get_groups(u'organization')) > 0:
             return {'success': True}

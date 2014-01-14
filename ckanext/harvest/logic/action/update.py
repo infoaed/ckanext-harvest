@@ -67,6 +67,11 @@ def harvest_source_update(context,data_dict):
                 job.status = u'Aborted'
                 job.save()
 
+    # Ensure sqlalchemy writes to the db immediately, since the gather/fetch
+    # runs in a different process and needs the latest source info. Not sure if
+    # this works, but try it.
+    model.repo.commit_and_remove()
+
     return harvest_source_dictize(source,context)
 
 def harvest_objects_import(context,data_dict):
