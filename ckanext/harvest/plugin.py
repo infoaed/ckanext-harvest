@@ -51,6 +51,7 @@ class Harvest(SingletonPlugin):
     def before_map(self, map):
 
         controller = 'ckanext.harvest.controllers.view:ViewController'
+        map.redirect('/harvest/', '/harvest') # because there are relative links
         map.connect('harvest', '/harvest',controller=controller,action='index')
 
         map.connect('/harvest/new', controller=controller, action='new')
