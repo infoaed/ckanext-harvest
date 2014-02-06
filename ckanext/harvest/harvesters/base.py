@@ -7,7 +7,7 @@ from ckan import model
 from ckan.model import Session, Package
 from ckan.logic import ValidationError, NotFound, get_action
 
-from ckan.logic.schema import default_package_schema
+from ckan.logic.schema import default_create_package_schema
 from ckan.lib.navl.validators import ignore_missing,ignore
 from ckan.lib.munge import munge_title_to_name,substitute_ascii_equivalents
 
@@ -32,7 +32,8 @@ class HarvesterBase(SingletonPlugin):
 
     config = None
 
-    def _gen_new_name(self,title):
+    @staticmethod
+    def _gen_new_name(title):
         '''
         Creates a URL friendly name from a title
         '''
@@ -41,7 +42,8 @@ class HarvesterBase(SingletonPlugin):
             name = name.replace('--', '-')
         return name
 
-    def _check_name(self,name):
+    @staticmethod
+    def _check_name(name):
         '''
         Checks if a package name already exists in the database, and adds
         a counter at the end if it does exist.
@@ -59,7 +61,8 @@ class HarvesterBase(SingletonPlugin):
                 counter = counter + 1
             return None
 
-    def _save_gather_error(self,message,job):
+    @staticmethod
+    def _save_gather_error(message,job):
         '''
         Helper function to create an error during the gather stage.
         '''
@@ -67,7 +70,8 @@ class HarvesterBase(SingletonPlugin):
         err.save()
         log.error(message)
 
-    def _save_object_error(self,message,obj,stage=u'Fetch'):
+    @staticmethod
+    def _save_object_error(message,obj,stage=u'Fetch'):
         '''
         Helper function to create an error during the fetch or import stage.
         '''
@@ -112,7 +116,7 @@ class HarvesterBase(SingletonPlugin):
         '''
         try:
             # Change default schema
-            schema = default_package_schema()
+            schema = default_create_package_schema()
             schema['id'] = [ignore_missing, unicode]
             schema['__junk'] = [ignore]
 

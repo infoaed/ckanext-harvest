@@ -130,6 +130,7 @@ def harvest_objects_import(context,data_dict):
     last_objects_ids = last_objects_ids.all()
 
     last_objects_count = 0
+    import_count = 0
 
     for obj_id in last_objects_ids:
         if segments and str(hashlib.md5(obj_id[0]).hexdigest())[0] not in segments:
@@ -142,10 +143,12 @@ def harvest_objects_import(context,data_dict):
                 if hasattr(harvester,'force_import'):
                     harvester.force_import = True
                 harvester.import_stage(obj)
+                import_count += 1
                 break
         last_objects_count += 1
-    log.info('Harvest objects imported: %s', last_objects_count)
-    return last_objects_count
+    log.info('Harvest objects imported: %s/%s', import_count,
+             last_objects_count)
+    return import_count
 
 def harvest_jobs_run(context,data_dict):
     log.info('Harvest job run: %r', data_dict)
