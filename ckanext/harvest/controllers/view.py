@@ -24,16 +24,9 @@ class ViewController(BaseController):
 
     not_auth_message = _('Not authorized to see this page')
 
-    def __before__(self, action, **params):
-
-        super(ViewController,self).__before__(action, **params)
-
-        c.publisher_auth = True # for DGU... (config.get('ckan.harvest.auth.profile',None) == 'publisher')
-
     def _get_publishers(self):
         groups = None
 
-        #if c.publisher_auth:
         if ckan.new_authz.is_sysadmin(c.user):
             groups = Group.all(group_type='organization')
         elif c.userobj:
@@ -52,15 +45,15 @@ class ViewController(BaseController):
 
 
     def index(self):
-        context = {'model': model, 'user': c.user, 'session': model.Session}
+        context = {'model': model, 'user': c.user, 'session': model.Session,
+                   'include_status': False}
         try:
             # Request all harvest sources
             c.sources = get_action('harvest_source_list')(context,{})
         except NotAuthorized,e:
             abort(401,self.not_auth_message)
 
-        if c.publisher_auth:
-            c.sources = sorted(c.sources,key=lambda source : source['publisher_title'])
+        c.sources = sorted(c.sources,key=lambda source : source['publisher_title'])
 
         c.status = config.get('ckan.harvest.status')
 

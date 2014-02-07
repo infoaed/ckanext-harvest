@@ -6,8 +6,8 @@ from ckan.model import User
 from ckan.plugins import PluginImplementations
 from ckanext.harvest.interfaces import IHarvester
 
-
-from ckan.logic import NotFound, check_access
+import ckan.plugins as p
+from ckan.logic import NotFound, check_access, side_effect_free
 
 from ckanext.harvest.model import (HarvestSource, HarvestJob, HarvestObject)
 from ckanext.harvest.logic.dictization import (harvest_source_dictize,
@@ -16,7 +16,20 @@ from ckanext.harvest.logic.dictization import (harvest_source_dictize,
 
 log = logging.getLogger(__name__)
 
+@side_effect_free
 def harvest_source_show(context,data_dict):
+    '''
+    Returns the metadata of a harvest source
+
+    This method just proxies the request to package_show. All auth checks and
+    validation will be done there.
+
+    :param id: the id or name of the harvest source
+    :type id: string
+
+    :returns: harvest source metadata
+    :rtype: dictionary
+    '''
     check_access('harvest_source_show',context,data_dict)
 
     id = data_dict.get('id')
@@ -27,22 +40,24 @@ def harvest_source_show(context,data_dict):
     if not source:
         raise NotFound
 
+    context['include_status'] = True
+
     return harvest_source_dictize(source,context)
 
+@side_effect_free
 def harvest_source_list(context, data_dict):
+
+    user = context.get('user')
 
     check_access('harvest_source_list',context,data_dict)
 
-    model = context['model']
-    session = context['session']
-    user = context.get('user','')
-
     sources = _get_sources_for_user(context, data_dict)
 
-    context.update({'detailed':False})
+    context['detailed'] = False
 
     return [harvest_source_dictize(source, context) for source in sources]
 
+@side_effect_free
 def harvest_source_for_a_dataset(context, data_dict):
     '''For a given dataset, return the harvest source that
     created or last updated it, otherwise NotFound.'''
@@ -67,6 +82,7 @@ def harvest_source_for_a_dataset(context, data_dict):
         context['include_status'] = False
     return harvest_source_dictize(source, context)
 
+@side_effect_free
 def harvest_job_show(context,data_dict):
 
     check_access('harvest_job_show',context,data_dict)
@@ -80,6 +96,7 @@ def harvest_job_show(context,data_dict):
 
     return harvest_job_dictize(job,context)
 
+@side_effect_free
 def harvest_job_list(context,data_dict):
 
     check_access('harvest_job_list',context,data_dict)
@@ -102,6 +119,7 @@ def harvest_job_list(context,data_dict):
 
     return [harvest_job_dictize(job,context) for job in jobs]
 
+@side_effect_free
 def harvest_object_show(context,data_dict):
     check_access('harvest_object_show',context,data_dict)
 
@@ -113,6 +131,7 @@ def harvest_object_show(context,data_dict):
 
     return harvest_object_dictize(obj,context)
 
+@side_effect_free
 def harvest_object_list(context,data_dict):
 
     check_access('harvest_object_list',context,data_dict)
@@ -135,6 +154,7 @@ def harvest_object_list(context,data_dict):
 
     return [getattr(obj,'id') for obj in objects]
 
+@side_effect_free
 def harvesters_info_show(context,data_dict):
 
     check_access('harvesters_info_show',context,data_dict)
@@ -156,6 +176,7 @@ def _get_sources_for_user(context,data_dict):
     session = context['session']
     user = context.get('user','')
 
+    only_mine = data_dict.get('only_mine', False)
     only_active = data_dict.get('only_active',False)
 
     query = session.query(HarvestSource) \
@@ -164,12 +185,8 @@ def _get_sources_for_user(context,data_dict):
     if only_active:
         query = query.filter(HarvestSource.active==True) \
 
-    # Sysadmins will get all sources
-    if not ckan.new_authz.is_sysadmin(user):
-        # This only applies to a non sysadmin user when using the
-        # publisher auth profile. When using the default profile,
-        # normal users will never arrive at this point, but even if they
-        # do, they will get an empty list.
+    if only_mine:
+        # filter to only harvest sources from this user's organizations
         user_obj = User.get(user)
 
         publisher_filters = []

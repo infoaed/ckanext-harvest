@@ -16,7 +16,7 @@ def harvest_source_dictize(source, context):
         if group:
             out['publisher_title'] = group.title
 
-    if context.get('include_status', True):
+    if context.get('include_status', False):
         out['status'] = _get_source_status(source, context)
 
     return out

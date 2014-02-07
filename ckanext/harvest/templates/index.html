@@ -21,7 +21,7 @@
 
     <div py:match="content">
 
-        <a class="btn btn-primary pull-right" id="xnew-harvest-source" href="harvest/new">
+        <a py:if="h.check_access('harvest_source_create')" class="btn btn-primary pull-right" id="xnew-harvest-source" href="harvest/new">
             <i class="icon-plus"></i>
             Add a harvesting source
         </a>
@@ -31,19 +31,19 @@
         <div class="harvest-content boxed">
 
 
-            <div py:if="c.status" class="status">
+            <div py:if="h.check_access('harvest_source_create') and c.status" class="status">
               <h3>Status:</h3>
               ${h.literal(c.status)}
             </div>
 
             <py:choose>
                 <py:when test="c.sources">
-                    <div id="show-inactive-sources-content">
+                    <div py:if="h.check_access('harvest_source_create')" id="show-inactive-sources-content">
                         <input type="checkbox" id="show-inactive-sources" />
                         <label for="show-inactive-sources"> Show inactive sources</label>
                     </div>
 
-       <table id="harvest-sources" class="table table-bordered ${'publishers' if c.publisher_auth else ''}" >
+       <table id="harvest-sources" class="table table-bordered ${'publishers'}" >
         <tr>
             <th class="action">View</th>
             <th class="action">Edit</th>
@@ -51,13 +51,13 @@
             <th>URL</th>
             <th>Type</th>
             <th>Active</th>
-            <th>Statistics</th>
-            <th>Next Harvest</th>
+<!--!            <th>Statistics</th>   
+            <th>Next Harvest</th>  -->
             <th>Created</th>
         </tr>
         <?python old_publisher = None ?>
         <py:for each="source in c.sources">
-            <tr class="publisher" py:if="c.publisher_auth and old_publisher != source['publisher_id']">
+            <tr class="publisher" py:if="old_publisher != source['publisher_id']">
                 <py:choose>
                     <py:when test="source.get('publisher_title')">
                         <td colspan="9">${source['publisher_title']}</td>
@@ -70,15 +70,16 @@
             </tr>
             <?python old_publisher = source['publisher_id'] ?>
             <tr class="${'active' if source.active else 'inactive'}">
-                <td align='center'><a href="harvest/${source.id}"><img src="ckanext/harvest/images/icons/source_view.png" alt="View" title="View" /></a></td>
-                <td  align='center'><a href="harvest/edit/${source.id}"><img src="ckanext/harvest/images/icons/source_edit.png" alt="Edit" title="Edit" /></a></td>
-                <td  align='center'><a href="harvest/refresh/${source.id}"><img src="ckanext/harvest/images/icons/source_refresh.png" alt="Refresh" title="Refresh" /></a></td>
+                <td align="center"><a href="harvest/${source.id}"><img src="ckanext/harvest/images/icons/source_view.png" alt="View" title="View" /></a></td>
+                <td align="centre"><py:if test="h.check_access('harvest_source_update', {'id':source.id})"><a href="harvest/edit/${source.id}"><img src="ckanext/harvest/images/icons/source_edit.png" alt="Edit" title="Edit" /></a></py:if></td>
+                <td align="centre"><py:if test="h.check_access('harvest_job_create', {'id':source.id})"><a href="harvest/refresh/${source.id}"><img src="ckanext/harvest/images/icons/source_refresh.png" alt="Refresh" title="Refresh" /></a></py:if></td>
 <?python
 from webhelpers.text import truncate
 ?>
                 <td title="${source.url}">${truncate(source.url, 50)}</td>
                 <td>${source.type}</td>
                 <td class="state">${source.active}</td>
+<!--!
                 <py:choose>
                     <py:when test="'msg' in source.status">
                         <td>${source.status.msg}</td>
@@ -90,7 +91,7 @@ from webhelpers.text import truncate
                         <td>${source.status.next_harvest}</td>
                     </py:otherwise>
                 </py:choose>
-
+-->
                 <td>${h.render_datetime(source.created)}</td>
              </tr>
          </py:for>

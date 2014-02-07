@@ -181,7 +181,8 @@ class Harvester(CkanCommand):
                     'user_id':user_id,
                     'publisher_id':publisher_id}
 
-            context = {'model':model, 'session':model.Session, 'user': self.admin_user['name']}
+            context = {'model':model, 'session':model.Session, 'user': self.admin_user['name'],
+                    'include_status': True}
             source = get_action('harvest_source_create')(context,data_dict)
             print 'Created new harvest source:'
             self.print_harvest_source(source)
@@ -296,7 +297,7 @@ class Harvester(CkanCommand):
         print '   active: %s' % source['active']
         print '     user: %s' % source['user_id']
         print 'publisher: %s' % source['publisher_id']
-        print '     jobs: %s' % source['status']['job_count']
+        #print '     jobs: %s' % source['status']['job_count']
         print ''
 
     def print_harvest_jobs(self, jobs):

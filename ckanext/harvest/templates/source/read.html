@@ -19,17 +19,13 @@
   <div class="harvest-content boxed">
   <py:if test="c.source">
   <div id="harvest-source-actions">
-  <a class="btn btn-primary" href="/harvest/edit/${c.source.id}">
+  <a py:if="h.check_access('harvest_source_update', {'id':c.source.id})" class="btn btn-primary" href="/harvest/edit/${c.source.id}">
     <i class="icon-edit"></i>
     Edit source
   </a>
-  <a class="btn btn-primary" href="/harvest/refresh/${c.source.id}">
+  <a py:if="h.check_access('harvest_job_create', {'id':c.source.id})" class="btn btn-primary" href="/harvest/refresh/${c.source.id}">
     <i class="icon-refresh"></i>
     Refresh source
-  </a>
-  <a class="btn btn-primary" href="/harvest">
-    <i class="icon-th-list"></i>
-    Sources list
   </a>
 
     </div>
@@ -69,11 +65,11 @@
             <td>-</td>
             </py:if>
         </tr>
-        <tr py:if="c.publisher_auth">
+        <tr>
             <th>User</th>
             <td>${c.source.user_id}</td>
         </tr>
-        <tr py:if="c.publisher_auth">
+        <tr>
             <th>Publisher</th>
             <py:if test="c.source.publisher_title">
             <td>${c.source.publisher_title}</td>
