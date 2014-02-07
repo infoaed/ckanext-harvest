@@ -2,53 +2,41 @@ from ckan.lib.base import _
 from ckan.logic import NotFound
 from ckan.model import User
 import ckan.new_authz
+from ckan.plugins import toolkit as pt
 
 from ckanext.harvest.model import HarvestSource
 from ckanext.harvest.logic.auth import get_source_object, get_job_object, get_obj_object
 
-def harvest_source_show(context,data_dict):
-    model = context['model']
-    user = context.get('user','')
 
-    source = get_source_object(context,data_dict)
+def auth_allow_anonymous_access(auth_function):
+    '''
+        Local version of the auth_allow_anonymous_access decorator that only
+        calls the actual toolkit decorator if the CKAN version supports it
+    '''
+    if pt.check_ckan_version(min_version='2.2'):
+        auth_function = pt.auth_allow_anonymous_access(auth_function)
 
-    # Non-logged users can not read the source
-    if not user:
-        return {'success': False, 'msg': _('Non-logged in users are not authorized to see harvest sources')}
+    return auth_function
 
-    # Sysadmins can read the source
-    if ckan.new_authz.is_sysadmin(user):
-        return {'success': True}
 
-    # Check if the source publisher id exists on the user's groups
-    user_obj = User.get(user)
-    if not user_obj or not source.publisher_id in [g.id for g in user_obj.get_groups(u'organization')]:
-        return {'success': False, 'msg': _('User %s not authorized to read harvest source %s') % (str(user),source.id)}
-    else:
-        return {'success': True}
+@auth_allow_anonymous_access
+def harvest_source_show(context, data_dict):
+    '''
+        Authorization check for getting the details of a harvest source
+    '''
+    # Public
+    return {'success': True}
 
-def harvest_source_list(context,data_dict):
 
-    model = context['model']
-    user = context.get('user')
+@auth_allow_anonymous_access
+def harvest_source_list(context, data_dict):
+    '''
+        Authorization check for getting a list of harvest sources
 
-    # Here we will just check that the user is logged in.
-    # The logic action will return an empty list if the user does not
-    # have permissons on any source.
-    if not user:
-        return {'success': False, 'msg': _('Only logged users are authorized to see their sources')}
-    else:
-        user_obj = User.get(user)
-        assert user_obj
+        Everybody can do it
+    '''
+    return {'success': True}
 
-        # Only users belonging to a publisher can list sources,
-        # unless they are sysadmins
-        if user_obj.sysadmin:
-            return {'success': True}
-        if len(user_obj.get_groups(u'organization')) > 0:
-            return {'success': True}
-        else:
-            return {'success': False, 'msg': _('User %s must belong to a publisher to list harvest sources') % str(user)}
 
 def harvest_job_show(context,data_dict):
     model = context['model']

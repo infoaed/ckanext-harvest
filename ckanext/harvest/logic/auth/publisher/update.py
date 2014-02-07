@@ -18,6 +18,11 @@ def harvest_source_update(context,data_dict):
     if ckan.new_authz.is_sysadmin(user):
         return {'success': True}
 
+    # TODO use this sort of thing instead
+    #check1 = new_authz.has_user_permission_for_group_or_org(
+    #        package.owner_org, user, 'update_dataset'
+    #)
+
     # Check if the source publisher id exists on the user's groups
     user_obj = User.get(user)
     if not user_obj or not source.publisher_id in [g.id for g in user_obj.get_groups(u'organization')]:
