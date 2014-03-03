@@ -14,8 +14,8 @@ from ckan.lib.base import BaseController, c, g, request, \
 from ckan.lib.navl.dictization_functions import DataError
 from ckan.logic import NotFound, ValidationError, get_action, NotAuthorized
 from ckanext.harvest.logic.schema import harvest_source_form_schema
-from ckanext.harvest.lib import HarvestError
-from ckan.lib.helpers import Page,pager_url
+from ckanext.harvest.lib import HarvestError, pager_url
+from ckan.lib.helpers import Page
 
 import logging
 log = logging.getLogger(__name__)

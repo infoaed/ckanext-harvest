@@ -18,6 +18,7 @@
 <div py:match="content">
   <div class="harvest-content boxed">
   <py:if test="c.source">
+  <h1>Harvest Source</h1>
   <div id="harvest-source-actions">
   <a py:if="h.check_access('harvest_source_update', {'id':c.source.id})" class="btn btn-primary" href="/harvest/edit/${c.source.id}">
     <i class="icon-edit"></i>
@@ -30,8 +31,8 @@
 
     </div>
     <div py:if="not c.source.active" class="alert alert-block">NB: This Harvest Source is Withdrawn. Therefore the Gemini XML will not be harvested again. However, any metadata that was previously harvested, remains in the catalogue.</div>
-    <table id="harvest-source-details" class="table table-bordered table-condensed">
-        <tr>
+    <table id="harvest-source-details" class="table table-bordered table-condensed" py:with="job_detail = h.check_access('harvest_job_create')">
+        <tr py:if="job_detail">
             <th>ID</th>
             <td>${c.source.id}</td>
         </tr>
@@ -43,7 +44,7 @@
             <th>Type</th>
             <td>${c.source.type}</td>
         </tr>
-        <tr>
+        <tr py:if="job_detail">
             <th>Withdrawn</th>
             <td>${not c.source.active}</td>
         </tr>
@@ -65,7 +66,7 @@
             <td>-</td>
             </py:if>
         </tr>
-        <tr>
+        <tr py:if="job_detail">
             <th>User</th>
             <td>${c.source.user_id}</td>
         </tr>
@@ -82,8 +83,9 @@
             <th>Created</th>
             <td>${c.source.created}</td>
         </tr>
+        <py:if test="job_detail">
         <tr>
-            <th>Total jobs</th>
+            <th>Total harvests</th>
             <td>${c.source.status.job_count}</td>
         </tr>
         <tr class="harvest-status">
@@ -126,29 +128,29 @@
             </td>
         </tr>
         <tr>
-            <th>Total Errors</th>
+            <th>Total Errors (in all harvests)</th>
             <td>${c.source.status.overall_statistics.errors}</td>
         </tr>
         <tr>
-            <th>Total Datasets</th>
+            <th>Total Datasets (in all harvests)</th>
             <td>${c.source.status.overall_statistics.added}</td>
         </tr>
+        </py:if>
         <tr>
             <th>Datasets</th>
             <td>
                 <a name="datasets"/>
-                <div>There could be a 10 minutes delay before these datasets (or changes to them) appear on
+                <div py:if="job_detail">There could be a 10 minutes delay before these datasets (or changes to them) appear on
                 the site or on search results.</div>
 
                 <p i18n:msg="item_count">There are <strong>${c.page.item_count}</strong> datasets.</p>
 
-                ${c.page.pager()}
                 <py:for each="item in c.page.items">
                 <div>
                 <a href="/dataset/${item}">${item}</a>
                 </div>
                 </py:for>
-                ${c.page.pager()}
+                ${paginator(c.page)}
 
             </td>
         </tr>

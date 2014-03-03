@@ -124,9 +124,12 @@ def fetch_callback(message_data,message):
 
         try:
             obj = HarvestObject.get(id)
-        except:
-            log.error('Harvest object does not exist: %s' % id)
+        except Exception, e:
+            log.error('Harvest object does not exist: %s %r', id, e.args)
         else:
+            if not obj:
+                log.error('Harvest object does not exist: %s' % id)
+                return
             # Send the harvest object to the plugins that implement
             # the Harvester interface, only if the source type
             # matches
