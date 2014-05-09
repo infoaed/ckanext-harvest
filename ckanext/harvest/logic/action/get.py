@@ -99,6 +99,13 @@ def harvest_job_show(context,data_dict):
 
 @side_effect_free
 def harvest_job_list(context,data_dict):
+    '''Returns a list of jobs and details of objects and errors.
+    There is a hard limit of 100 results.
+
+    :param status: filter by e.g. "New" or "Finished" jobs
+    :param source_id: filter by a harvest source
+    :param offset: paging
+    '''
 
     check_access('harvest_job_list',context,data_dict)
 
@@ -107,6 +114,7 @@ def harvest_job_list(context,data_dict):
 
     source_id = data_dict.get('source_id',False)
     status = data_dict.get('status',False)
+    offset = data_dict.get('offset', 0)
 
     query = session.query(HarvestJob)
 
@@ -115,6 +123,9 @@ def harvest_job_list(context,data_dict):
 
     if status:
         query = query.filter(HarvestJob.status==status)
+
+    # Have a max for safety
+    query = query.offset(offset).limit(100)
 
     jobs = query.all()
 
