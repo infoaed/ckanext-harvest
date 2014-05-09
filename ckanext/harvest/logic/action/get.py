@@ -168,7 +168,7 @@ def harvest_object_list(context,data_dict):
 
 @side_effect_free
 def harvesters_info_show(context,data_dict):
-
+    '''Returns details of the installed harvesters.'''
     check_access('harvesters_info_show',context,data_dict)
 
     available_harvesters = []

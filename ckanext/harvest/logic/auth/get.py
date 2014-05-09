@@ -133,19 +133,8 @@ def harvest_object_list(context,data_dict):
 
     return {'success': True}
 
+
+@auth_allow_anonymous_access
 def harvesters_info_show(context,data_dict):
-    model = context['model']
-    user = context.get('user','')
-
-    # Non-logged users can not create sources
-    if not user:
-        return {'success': False, 'msg': _('Non-logged in users can not see the harvesters info')}
-
-    # Sysadmins and the rest of logged users can see the harvesters info,
-    # as long as they belong to a publisher
-    user_obj = User.get(user)
-    if not user_obj or not ckan.new_authz.is_sysadmin(user) and len(user_obj.get_groups(u'organization')) == 0:
-        return {'success': False, 'msg': _('User %s must belong to a publisher to see the harvesters info') % str(user)}
-    else:
-        return {'success': True}
-
+    # Public
+    return {'success': True}
