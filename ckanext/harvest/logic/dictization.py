@@ -51,7 +51,11 @@ def harvest_object_dictize(obj, context):
     return out
 
 def _get_source_status(source, context):
+    '''
+    Returns the harvest source's current job status and list of packages.
 
+    detailed: calculate the details of the last_harvest too
+    '''
     model = context.get('model')
     detailed = context.get('detailed',True)
 
@@ -91,14 +95,14 @@ def _get_source_status(source, context):
 
         #Get HarvestObjects from last job with links to packages
         if detailed:
-            last_objects = [obj for obj in last_job.objects if obj.package is not None]
+            last_objects = [obj for obj in last_job.objects if obj.package_id is not None]
 
             if len(last_objects) == 0:
                 # No packages added or updated
                 out['last_harvest_statistics']['added'] = 0
                 out['last_harvest_statistics']['updated'] = 0
             else:
-                # Check wether packages were added or updated
+                # Check whether packages were added or updated
                 for last_object in last_objects:
                     # Check if the same package had been linked before
                     previous_objects = model.Session.query(HarvestObject) \
@@ -136,9 +140,7 @@ def _get_source_status(source, context):
                 .filter(Package.state==u'active')
 
         out['overall_statistics']['added'] = packages.count()
-        if detailed:
-            for package in packages:
-                out['packages'].append(package.name)
+        out['packages'] = [package.name for package in packages]
 
         gather_errors = model.Session.query(HarvestGatherError) \
                 .join(HarvestJob).join(HarvestSource) \

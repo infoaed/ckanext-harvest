@@ -13,50 +13,22 @@
       <script>$("#show-inactive-sources").click(function(){$("#harvest-sources .inactive").toggle()});</script>
   </py:def>
 
-<py:match path="breadcrumbs">
+  <py:match path="breadcrumbs">
     <li><a href="/data/search">Datasets</a></li>
     <li><a href="/harvest">Harvest sources</a></li>
   </py:match>
 
-
-    <div py:match="content">
-
-        <a py:if="h.check_access('harvest_source_create')" class="btn btn-primary pull-right" id="xnew-harvest-source" href="harvest/new">
-            <i class="icon-plus"></i>
-            Add a harvesting source
-        </a>
-
-        <h1>Harvesting sources</h1>
-
-        <div class="harvest-content boxed">
-
-
-            <div py:if="h.check_access('harvest_source_create') and c.status" class="status">
-              <h3>Status:</h3>
-              ${h.literal(c.status)}
-            </div>
-
-            <py:choose>
-                <py:when test="c.sources">
-                    <div py:if="h.check_access('harvest_source_create')" id="show-inactive-sources-content">
-                        <input type="checkbox" id="show-inactive-sources" />
-                        <label for="show-inactive-sources"> Show inactive sources</label>
-                    </div>
-
+  <py:def function="harvest_source_table(sources, can_edit)">
        <table id="harvest-sources" class="table table-bordered ${'publishers'}" >
         <tr>
-            <th class="action">View</th>
-            <th class="action">Edit</th>
-            <th class="action">Refresh</th>
+            <th></th>
             <th>URL</th>
             <th>Type</th>
             <th>Active</th>
-<!--!            <th>Statistics</th>   
-            <th>Next Harvest</th>  -->
             <th>Created</th>
         </tr>
         <?python old_publisher = None ?>
-        <py:for each="source in c.sources">
+        <py:for each="source in (sources if can_edit else (s for s in sources if s.active))">
             <tr class="publisher" py:if="old_publisher != source['publisher_id']">
                 <py:choose>
                     <py:when test="source.get('publisher_title')">
@@ -70,37 +42,64 @@
             </tr>
             <?python old_publisher = source['publisher_id'] ?>
             <tr class="${'active' if source.active else 'inactive'}">
-                <td align="center"><a href="harvest/${source.id}"><img src="ckanext/harvest/images/icons/source_view.png" alt="View" title="View" /></a></td>
-                <td align="centre"><py:if test="h.check_access('harvest_source_update', {'id':source.id})"><a href="harvest/edit/${source.id}"><img src="ckanext/harvest/images/icons/source_edit.png" alt="Edit" title="Edit" /></a></py:if></td>
-                <td align="centre"><py:if test="h.check_access('harvest_job_create', {'id':source.id})"><a href="harvest/refresh/${source.id}"><img src="ckanext/harvest/images/icons/source_refresh.png" alt="Refresh" title="Refresh" /></a></py:if></td>
+                <td align="center">
+                  <a href="harvest/${source.id}">View</a>&nbsp;&nbsp;
+                  <a py:if="h.check_access('harvest_source_update', {'id':source.id})" href="harvest/edit/${source.id}">Edit</a>&nbsp;&nbsp;
+                  <a py:if="h.check_access('harvest_job_create', {'source_id':source.id})" href="harvest/edit/${source.id}">Refresh</a>
+                </td>
 <?python
 from webhelpers.text import truncate
 ?>
                 <td title="${source.url}">${truncate(source.url, 50)}</td>
                 <td>${source.type}</td>
                 <td class="state">${source.active}</td>
-<!--!
-                <py:choose>
-                    <py:when test="'msg' in source.status">
-                        <td>${source.status.msg}</td>
-                        <td>${source.status.msg}</td>
-                    </py:when>
-                    <py:otherwise>
-                        <td>Datasets: <a href="harvest/${source.id}#datasets">${source.status.overall_statistics.added}</a> <br/>
-                            Last errors: <a href="harvest/${source.id}#errors">${source.status.last_harvest_statistics.errors}</a></td>
-                        <td>${source.status.next_harvest}</td>
-                    </py:otherwise>
-                </py:choose>
--->
                 <td>${h.render_datetime(source.created)}</td>
              </tr>
          </py:for>
     </table>
-   </py:when>
-    <py:otherwise>
-        <div id="no-harvest-sources">No harvest sources defined yet.</div>
-    </py:otherwise>
-  </py:choose>
+
+  </py:def>
+
+    <div py:match="content" py:with="can_edit=h.check_access('harvest_source_create'); org_ids=[o.id for o in c.userobj.get_groups('organization')] if c.userobj else []">
+
+        <a py:if="can_edit" class="btn btn-primary pull-right" id="xnew-harvest-source" href="harvest/new">
+            <i class="icon-plus"></i>
+            Add a harvesting source
+        </a>
+
+        <h1>Harvesting sources</h1>
+
+        <div class="harvest-content boxed">
+
+
+          <div py:if="can_edit and c.status" class="status">
+            <h3>Status:</h3>
+            ${h.literal(c.status)}
+          </div>
+
+          <div py:if="org_ids">
+              <div py:if="can_edit" id="show-inactive-sources-content">
+                <input type="checkbox" id="show-inactive-sources" />
+                <label for="show-inactive-sources"> Show inactive sources</label>
+              </div>
+              <h3>My organizations</h3>
+              ${harvest_source_table((s for s in c.sources if s.publisher_id in org_ids), can_edit)}
+          </div>
+          <py:choose>
+            <py:when test="c.sources">
+              <div py:if="can_edit" id="show-inactive-sources-content">
+                <input type="checkbox" id="show-inactive-sources" />
+                <label for="show-inactive-sources"> Show inactive sources</label>
+              </div>
+
+              <h3>All organizations</h3>
+              ${harvest_source_table(c.sources, can_edit)}
+
+            </py:when>
+            <py:otherwise>
+                <div id="no-harvest-sources">No harvest sources defined yet.</div>
+            </py:otherwise>
+          </py:choose>
 
   </div>
 </div>

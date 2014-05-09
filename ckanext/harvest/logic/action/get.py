@@ -40,7 +40,8 @@ def harvest_source_show(context,data_dict):
     if not source:
         raise NotFound
 
-    context['include_status'] = True
+    if 'include_status' not in context:
+        context['include_status'] = True
 
     return harvest_source_dictize(source,context)
 

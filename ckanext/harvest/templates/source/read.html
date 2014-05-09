@@ -24,14 +24,14 @@
     <i class="icon-edit"></i>
     Edit source
   </a>
-  <a py:if="h.check_access('harvest_job_create', {'id':c.source.id})" class="btn btn-primary" href="/harvest/refresh/${c.source.id}">
+  <a py:if="h.check_access('harvest_job_create', {'source_id':c.source.id})" class="btn btn-primary" href="/harvest/refresh/${c.source.id}">
     <i class="icon-refresh"></i>
     Refresh source
   </a>
 
     </div>
     <div py:if="not c.source.active" class="alert alert-block">NB: This Harvest Source is Withdrawn. Therefore the Gemini XML will not be harvested again. However, any metadata that was previously harvested, remains in the catalogue.</div>
-    <table id="harvest-source-details" class="table table-bordered table-condensed" py:with="job_detail = h.check_access('harvest_job_create')">
+    <table id="harvest-source-details" class="table table-bordered table-condensed" py:with="job_detail = h.check_access('harvest_job_create', {'source_id':c.source.id})">
         <tr py:if="job_detail">
             <th>ID</th>
             <td>${c.source.id}</td>

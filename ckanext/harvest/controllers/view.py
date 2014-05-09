@@ -113,7 +113,7 @@ class ViewController(BaseController):
         old_data = None
         if not data:
             try:
-                context = {'model':model, 'user':c.user}
+                context = {'model':model, 'user':c.user, 'include_status':False}
 
                 old_data = get_action('harvest_source_show')(context, {'id':id})
             except NotFound:
@@ -180,7 +180,8 @@ class ViewController(BaseController):
 
     def read(self,id):
         try:
-            context = {'model':model, 'user':c.user}
+            context = {'model':model, 'user':c.user,
+                       'detailed': h.check_access('harvest_job_create', {'source_id':id})}
             c.source = get_action('harvest_source_show')(context, {'id':id})
 
             c.page = Page(
