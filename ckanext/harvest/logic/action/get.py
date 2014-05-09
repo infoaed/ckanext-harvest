@@ -36,6 +36,7 @@ def harvest_source_show(context,data_dict):
     attr = data_dict.get('attr',None)
 
     source = HarvestSource.get(id,attr=attr)
+    context['source'] = source
 
     if not source:
         raise NotFound

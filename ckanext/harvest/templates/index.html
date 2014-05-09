@@ -47,10 +47,7 @@
                   <a py:if="h.check_access('harvest_source_update', {'id':source.id})" href="harvest/edit/${source.id}">Edit</a>&nbsp;&nbsp;
                   <a py:if="h.check_access('harvest_job_create', {'source_id':source.id})" href="harvest/edit/${source.id}">Refresh</a>
                 </td>
-<?python
-from webhelpers.text import truncate
-?>
-                <td title="${source.url}">${truncate(source.url, 50)}</td>
+                <td title="${source.url}">${h.truncate(source.url, 60)}</td>
                 <td>${source.type}</td>
                 <td class="state">${source.active}</td>
                 <td>${h.render_datetime(source.created)}</td>

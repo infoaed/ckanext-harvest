@@ -16,6 +16,19 @@ from ckanext.harvest.model import HarvestSource, HarvestJob, setup as harvest_mo
 
 log = logging.getLogger(__name__)
 
+'''These tests are pretty broken. For now, here's how to test auth manually.
+
+URLs:
+
+/harvest
+/harvest/new
+/harvest/c9eeaa17-2291-4170-93ca-aec634aa0d63
+/harvest/edit/c9eeaa17-2291-4170-93ca-aec634aa0d63
+/harvest/refresh/c9eeaa17-2291-4170-93ca-aec634aa0d63
+
+Try as anonymous, joe bloggs, publisher, sysadmin.
+
+'''
 
 class HarvestAuthBaseCase():
     @classmethod
@@ -113,42 +126,7 @@ class HarvestAuthBaseCase():
         assert job.source_id == source.id
 
 
-
-
-class TestAuthDefaultProfile(FunctionalTestCase,HarvestAuthBaseCase):
-
-    @classmethod
-    def setup_class(cls):
-        if (config.get('ckan.harvest.auth.profile','') != ''):
-            raise SkipTest('Skipping default auth profile tests. Set ckan.harvest.auth.profile = \'\' to run them')
-
-        super(TestAuthDefaultProfile,cls).setup_class()
-
-    def setup(self):
-        CreateTestData.create()
-        self.sysadmin_user = model.User.get('testsysadmin')
-        self.normal_user = model.User.get('annafan')
-
-    def teardown(self):
-        model.repo.rebuild_db()
-
-    def test_auth_default_profile_sysadmin(self):
-        self._test_auth_allowed(self.sysadmin_user.name)
-
-    def test_auth_default_profile_normal(self):
-        self._test_auth_not_allowed(self.normal_user.name)
-
-    def test_auth_default_profile_notloggedin(self):
-        self._test_auth_not_allowed(status=302)
-
-class TestAuthPublisherProfile(FunctionalTestCase,HarvestAuthBaseCase):
-
-    @classmethod
-    def setup_class(cls):
-        if (config.get('ckan.harvest.auth.profile') != 'publisher'):
-            raise SkipTest('Skipping publisher auth profile tests. Set ckan.harvest.auth.profile = \'publisher\' to run them')
-
-        super(TestAuthPublisherProfile,cls).setup_class()
+class TestAuth(FunctionalTestCase, HarvestAuthBaseCase):
 
     def setup(self):
 

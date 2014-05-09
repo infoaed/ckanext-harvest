@@ -5,14 +5,12 @@ from pylons.i18n import _
 
 import ckan.new_authz
 from ckan import model
+import ckan.plugins as p
 from ckan.model.group import Group
-
 import ckan.lib.helpers as h, json
 from ckan.lib.base import BaseController, c, g, request, \
                           response, session, render, config, abort, redirect
-
 from ckan.lib.navl.dictization_functions import DataError
-from ckan.logic import NotFound, ValidationError, get_action, NotAuthorized
 from ckanext.harvest.logic.schema import harvest_source_form_schema
 from ckanext.harvest.lib import HarvestError, pager_url
 from ckan.lib.helpers import Page
@@ -49,8 +47,8 @@ class ViewController(BaseController):
                    'include_status': False}
         try:
             # Request all harvest sources
-            c.sources = get_action('harvest_source_list')(context,{})
-        except NotAuthorized,e:
+            c.sources = p.toolkit.get_action('harvest_source_list')(context,{})
+        except p.toolkit.NotAuthorized,e:
             abort(401,self.not_auth_message)
 
         c.sources = sorted(c.sources,key=lambda source : source['publisher_title'])
@@ -60,6 +58,13 @@ class ViewController(BaseController):
         return render('index.html')
 
     def new(self,data = None,errors = None, error_summary = None):
+
+        context = {'model': model, 'user': c.user or c.author,
+                   'auth_user_obj': c.userobj}
+        try:
+            p.toolkit.check_access('harvest_source_create', context)
+        except p.toolkit.NotAuthorized:
+            abort(401, _('Unauthorized to create a harvest source'))
 
         if ('save' in request.params) and not data:
             return self._save_new()
@@ -75,9 +80,8 @@ class ViewController(BaseController):
         error_summary = error_summary or {}
 
         try:
-            context = {'model':model, 'user':c.user}
-            harvesters_info = get_action('harvesters_info_show')(context,{})
-        except NotAuthorized,e:
+            harvesters_info = p.toolkit.get_action('harvesters_info_show')(context,{})
+        except p.toolkit.NotAuthorized,e:
             abort(401,self.not_auth_message)
 
         vars = {'data': data, 'errors': errors, 'error_summary': error_summary, 'harvesters': harvesters_info}
@@ -93,19 +97,21 @@ class ViewController(BaseController):
             context = {'model':model, 'user':c.user, 'session':model.Session,
                        'schema':harvest_source_form_schema()}
 
-            source = get_action('harvest_source_create')(context,data_dict)
+            source = p.toolkit.get_action('harvest_source_create')(context,data_dict)
+            context = {'model': model, 'user': c.user or c.author,
+                       'auth_user_obj': c.userobj}
 
             # Create a harvest job for the new source
-            get_action('harvest_job_create')(context,{'source_id':source['id']})
+            p.toolkit.get_action('harvest_job_create')(context,{'source_id':source['id']})
 
             h.flash_success(_('New harvest source added successfully.'
                     'A new harvest job for the source has also been created.'))
             redirect('/harvest/%s' % source['id'])
-        except NotAuthorized,e:
+        except p.toolkit.NotAuthorized,e:
             abort(401,self.not_auth_message)
         except DataError,e:
             abort(400, 'Integrity Error')
-        except ValidationError,e:
+        except p.toolkit.ValidationError,e:
             errors = e.error_dict
             error_summary = e.error_summary if hasattr(e,'error_summary') else None
             return self.new(data_dict, errors, error_summary)
@@ -115,27 +121,27 @@ class ViewController(BaseController):
         if ('save' in request.params) and not data:
             return self._save_edit(id)
 
+        try:
+            context = {'model':model, 'user':c.user, 'include_status':False}
 
-        old_data = None
-        if not data:
-            try:
-                context = {'model':model, 'user':c.user, 'include_status':False}
-
-                old_data = get_action('harvest_source_show')(context, {'id':id})
-            except NotFound:
-                abort(404, _('Harvest Source not found'))
-            except NotAuthorized,e:
-                abort(401,self.not_auth_message)
+            old_data = p.toolkit.get_action('harvest_source_show')(context, {'id':id})
+        except p.toolkit.ObjectNotFound:
+            abort(404, _('Harvest Source not found'))
+        except p.toolkit.NotAuthorized:
+            abort(401, self.not_auth_message)
+        try:
+            p.toolkit.check_access('harvest_source_update', context)
+        except p.toolkit.NotAuthorized:
+            abort(401, _('Unauthorized to update the harvest source'))
 
         data = data or old_data
         errors = errors or {}
         error_summary = error_summary or {}
         try:
-            context = {'model':model, 'user':c.user}
-            harvesters_info = get_action('harvesters_info_show')(context,{})
-        except NotAuthorized,e:
-            abort(401,self.not_auth_message)
-
+            context = {'model': model, 'user': c.user}
+            harvesters_info = p.toolkit.get_action('harvesters_info_show')(context, {})
+        except p.toolkit.NotAuthorized:
+            abort(401, self.not_auth_message)
 
         vars = {'data': data, 'errors': errors, 'error_summary': error_summary, 'harvesters': harvesters_info}
 
@@ -153,17 +159,17 @@ class ViewController(BaseController):
             context = {'model':model, 'user':c.user, 'session':model.Session,
                        'schema':harvest_source_form_schema()}
 
-            source = get_action('harvest_source_update')(context,data_dict)
+            source = p.toolkit.get_action('harvest_source_update')(context,data_dict)
 
             h.flash_success(_('Harvest source edited successfully.'))
             redirect('/harvest/%s' %id)
-        except NotAuthorized,e:
+        except p.toolkit.NotAuthorized,e:
             abort(401,self.not_auth_message)
         except DataError,e:
             abort(400, _('Integrity Error'))
-        except NotFound, e:
+        except p.toolkit.ObjectNotFound, e:
             abort(404, _('Harvest Source not found'))
-        except ValidationError,e:
+        except p.toolkit.ValidationError,e:
             errors = e.error_dict
             error_summary = e.error_summary if hasattr(e,'error_summary') else None
             return self.edit(id,data_dict, errors, error_summary)
@@ -188,7 +194,7 @@ class ViewController(BaseController):
         try:
             context = {'model':model, 'user':c.user,
                        'detailed': h.check_access('harvest_job_create', {'source_id':id})}
-            c.source = get_action('harvest_source_show')(context, {'id':id})
+            c.source = p.toolkit.get_action('harvest_source_show')(context, {'id':id})
 
             c.page = Page(
                 collection=c.source['status']['packages'],
@@ -198,9 +204,9 @@ class ViewController(BaseController):
             )
 
             return render('source/read.html')
-        except NotFound:
+        except p.toolkit.ObjectNotFound:
             abort(404,_('Harvest source not found'))
-        except NotAuthorized,e:
+        except p.toolkit.NotAuthorized,e:
             abort(401,self.not_auth_message)
 
 
@@ -208,24 +214,24 @@ class ViewController(BaseController):
     def delete(self,id):
         try:
             context = {'model':model, 'user':c.user}
-            get_action('harvest_source_delete')(context, {'id':id})
+            p.toolkit.get_action('harvest_source_delete')(context, {'id':id})
 
             h.flash_success(_('Harvesting source successfully inactivated'))
             redirect(h.url_for('harvest'))
-        except NotFound:
+        except p.toolkit.ObjectNotFound:
             abort(404,_('Harvest source not found'))
-        except NotAuthorized,e:
+        except p.toolkit.NotAuthorized,e:
             abort(401,self.not_auth_message)
 
 
     def create_harvesting_job(self,id):
         try:
             context = {'model':model, 'user':c.user, 'session':model.Session}
-            get_action('harvest_job_create')(context,{'source_id':id})
+            p.toolkit.get_action('harvest_job_create')(context,{'source_id':id})
             h.flash_success(_('Refresh requested, harvesting will take place within 15 minutes.'))
-        except NotFound:
+        except p.toolkit.ObjectNotFound:
             abort(404,_('Harvest source not found'))
-        except NotAuthorized,e:
+        except p.toolkit.NotAuthorized,e:
             abort(401,self.not_auth_message)
         except HarvestError, e:
             msg = 'Could not create harvest job: %s' % str(e)
@@ -240,7 +246,7 @@ class ViewController(BaseController):
 
         try:
             context = {'model':model, 'user':c.user}
-            obj = get_action('harvest_object_show')(context, {'id':id})
+            obj = p.toolkit.get_action('harvest_object_show')(context, {'id':id})
 
             # Check content type. It will probably be either XML or JSON
             try:
@@ -256,9 +262,9 @@ class ViewController(BaseController):
 
             response.headers['Content-Length'] = len(obj['content'])
             return obj['content']
-        except NotFound:
+        except p.toolkit.ObjectNotFound:
             abort(404,_('Harvest object not found'))
-        except NotAuthorized,e:
+        except p.toolkit.NotAuthorized,e:
             abort(401,self.not_auth_message)
         except Exception, e:
             msg = 'An error occurred: [%s]' % str(e)

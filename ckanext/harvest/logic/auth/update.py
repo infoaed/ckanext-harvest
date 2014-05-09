@@ -1,88 +1,73 @@
-from ckan.lib.base import _
-from ckan.model import User
 import ckan.new_authz
+import ckan.plugins as p
 
 from ckanext.harvest.logic.auth import get_source_object
+from ckanext.harvest.model import HarvestSource
 
-def harvest_source_update(context,data_dict):
-    model = context['model']
-    user = context.get('user','')
+_ = p.toolkit._
 
-    source = get_source_object(context,data_dict)
 
-    # Non-logged users can not update this source
-    if not user:
-        return {'success': False, 'msg': _('Non-logged in users are not authorized to update harvest sources')}
+def harvest_source_update(context, data_dict):
+    #model = context['model']
+    user = context.get('user', '')
 
-    # Sysadmins can update the source
-    if ckan.new_authz.is_sysadmin(user):
-        return {'success': True}
+    source = get_source_object(context, data_dict)
 
-    # TODO use this sort of thing instead
-    #check1 = new_authz.has_user_permission_for_group_or_org(
-    #        package.owner_org, user, 'update_dataset'
-    #)
+    # Check the user is admin/editor for the publisher - i.e. has
+    # update_dataset permission
+    check1 = ckan.new_authz.has_user_permission_for_group_or_org(
+        source.publisher_id, user, 'update_dataset'
+    )
+    if not check1:
+        return {'success': False,
+                'msg': _('User %s not authorized to update harvest source %s')
+                       % (str(user), source.id)}
+    return {'success': True}
 
-    # Check if the source publisher id exists on the user's groups
-    user_obj = User.get(user)
-    if not user_obj or not source.publisher_id in [g.id for g in user_obj.get_groups(u'organization')]:
-        return {'success': False, 'msg': _('User %s not authorized to update harvest source %s') % (str(user),source.id)}
-    else:
-        return {'success': True}
 
-def harvest_objects_import(context,data_dict):
-    model = context['model']
+def harvest_objects_import(context, data_dict):
+    #model = context['model']
     user = context.get('user')
 
-    # Check user is logged in
-    if not user:
-        return {'success': False, 'msg': _('Only logged users are authorized to reimport harvest objects')}
+    source_id = data_dict.get('source_id', False)
+    if not source_id:
+        return {'success': False, 'msg': _('Only sysadmins can reimport all harvest objects') % str(user)}
 
-    user_obj = User.get(user)
+    source = HarvestSource.get(source_id)
+    if not source:
+        raise p.toolkit.ObjectNotFound
 
-    # Checks for non sysadmin users
-    if not ckan.new_authz.is_sysadmin(user):
-        if not user_obj or len(user_obj.get_groups(u'organization')) == 0:
-            return {'success': False, 'msg': _('User %s must belong to a publisher to reimport harvest objects') % str(user)}
-
-        source_id = data_dict.get('source_id',False)
-        if not source_id:
-            return {'success': False, 'msg': _('Only sysadmins can reimport all harvest objects') % str(user)}
-
-        source = HarvestSource.get(source_id)
-        if not source:
-            raise NotFound
-
-        if not source.publisher_id in [g.id for g in user_obj.get_groups(u'organization')]:
-            return {'success': False, 'msg': _('User %s not authorized to reimport objects from source %s') % (str(user),source.id)}
+    # Check the user is admin/editor for the publisher - i.e. has
+    # update_dataset permission
+    check1 = ckan.new_authz.has_user_permission_for_group_or_org(
+        source.publisher_id, user, 'update_dataset'
+    )
+    if not check1:
+        return {'success': False,
+                'msg': _('User %s not authorized to reimport objects from source %s')
+                % (str(user), source.id)}
 
     return {'success': True}
 
-def harvest_jobs_run(context,data_dict):
-    model = context['model']
+
+def harvest_jobs_run(context, data_dict):
+    #model = context['model']
     user = context.get('user')
 
-    # Check user is logged in
-    if not user:
-        return {'success': False, 'msg': _('Only logged users are authorized to run harvest jobs')}
+    source_id = data_dict.get('source_id', False)
+    if not source_id:
+        return {'success': False, 'msg': _('Only sysadmins can run all harvest jobs') % str(user)}
 
-    user_obj = User.get(user)
+    source = HarvestSource.get(source_id)
+    if not source:
+        raise p.toolkit.ObjectNotFound
 
-    # Checks for non sysadmin users
-    if not ckan.new_authz.is_sysadmin(user):
-        if not user_obj or len(user_obj.get_groups(u'organization')) == 0:
-            return {'success': False, 'msg': _('User %s must belong to a publisher to run harvest jobs') % str(user)}
-
-        source_id = data_dict.get('source_id',False)
-        if not source_id:
-            return {'success': False, 'msg': _('Only sysadmins can run all harvest jobs') % str(user)}
-
-        source = HarvestSource.get(source_id)
-        if not source:
-            raise NotFound
-
-        if not source.publisher_id in [g.id for g in user_obj.get_groups(u'organization')]:
-            return {'success': False, 'msg': _('User %s not authorized to run jobs from source %s') % (str(user),source.id)}
+    # Check the user is admin/editor for the publisher - i.e. has
+    # update_dataset permission
+    check1 = ckan.new_authz.has_user_permission_for_group_or_org(
+        source.publisher_id, user, 'update_dataset'
+    )
+    if not check1:
+        return {'success': False, 'msg': _('User %s not authorized to run jobs from source %s') % (str(user),source.id)}
 
     return {'success': True}
-
