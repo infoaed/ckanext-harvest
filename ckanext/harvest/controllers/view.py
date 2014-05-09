@@ -64,7 +64,13 @@ class ViewController(BaseController):
         if ('save' in request.params) and not data:
             return self._save_new()
 
-        data = data or {}
+        # #1433 URL params pre-populate fields
+        param_data = {}
+        for field_name in ('url', 'type', 'title', 'description', 'publisher_id'):
+            if field_name in request.params:
+                param_data[field_name] = request.params[field_name]
+
+        data = data or param_data or {}
         errors = errors or {}
         error_summary = error_summary or {}
 
