@@ -30,7 +30,7 @@
   </a>
 
     </div>
-    <div py:if="not c.source.active" class="alert alert-block">NB: This Harvest Source is Withdrawn. Therefore the Gemini XML will not be harvested again. However, any metadata that was previously harvested, remains in the catalogue.</div>
+    <div py:if="not c.source.active" class="alert alert-block">NB: This Harvest Source is Inactive. Therefore the Gemini XML will not be harvested again. However, any records that were previously harvested remain in the catalogue.</div>
     <table id="harvest-source-details" class="table table-bordered table-condensed" py:with="job_detail = h.check_access('harvest_job_create', {'source_id':c.source.id})">
         <tr py:if="job_detail">
             <th>ID</th>
@@ -45,8 +45,8 @@
             <td>${c.source.type}</td>
         </tr>
         <tr py:if="job_detail">
-            <th>Withdrawn</th>
-            <td>${not c.source.active}</td>
+            <th>Active</th>
+            <td>${c.source.active}</td>
         </tr>
         <tr py:if="c.source.title">
             <th>Title</th>
