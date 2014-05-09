@@ -45,7 +45,7 @@
                 <td align="center">
                   <a href="harvest/${source.id}">View</a>&nbsp;&nbsp;
                   <a py:if="h.check_access('harvest_source_update', {'id':source.id})" href="harvest/edit/${source.id}">Edit</a>&nbsp;&nbsp;
-                  <a py:if="h.check_access('harvest_job_create', {'source_id':source.id})" href="harvest/edit/${source.id}">Refresh</a>
+                  <a py:if="h.check_access('harvest_job_create', {'source_id':source.id})" href="harvest/refresh/${source.id}">Refresh</a>
                 </td>
                 <td title="${source.url}">${h.truncate(source.url, 60)}</td>
                 <td>${source.type}</td>

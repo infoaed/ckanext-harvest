@@ -117,39 +117,48 @@ def gather_callback(message_data,message):
         message.ack()
 
 
-def fetch_callback(message_data,message):
+def fetch_callback(message_data, message):
     try:
         id = message_data['harvest_object_id']
-        log.info('Received harvest object id: %s' % id)
-
-        try:
-            obj = HarvestObject.get(id)
-        except Exception, e:
-            log.error('Harvest object does not exist: %s %r', id, e.args)
-        else:
-            if not obj:
-                log.error('Harvest object does not exist: %s' % id)
-                return
-            # Send the harvest object to the plugins that implement
-            # the Harvester interface, only if the source type
-            # matches
-            for harvester in PluginImplementations(IHarvester):
-                if harvester.info()['name'] == obj.source.type:
-
-                    # See if the plugin can fetch the harvest object
-                    obj.fetch_started = datetime.datetime.now()
-                    success = harvester.fetch_stage(obj)
-                    obj.fetch_finished = datetime.datetime.now()
-                    obj.save()
-                    #TODO: retry times?
-                    if success:
-                        # If no errors where found, call the import method
-                        harvester.import_stage(obj)
-
-
-
     except KeyError:
         log.error('No harvest object id received')
+        message.ack()
+        return
+    log.info('Received harvest object id: %s' % id)
+
+    try:
+        obj = HarvestObject.get(id)
+    except Exception, e:
+        # I quite often see:
+        # sqlalchemy.exc.OperationalError "server closed the connection unexpectedly"
+        # followed by sqlalchemy.exc.StatementError "Can't reconnect until invalid transaction is rolled back"
+        log.error('Connection Error during fetch of %s: %r %r' % (id, e, e.args))
+        # By not sending the message.ack(), it will be retried by RabbitMQ
+        # later.
+        # Try to clear the issue with a remove
+        from ckan import model
+        model.Session.remove()
+        return
+
+    try:
+        if not obj:
+            log.error('Harvest object does not exist: %s' % id)
+            return
+        # Send the harvest object to the plugins that implement
+        # the Harvester interface, only if the source type
+        # matches
+        for harvester in PluginImplementations(IHarvester):
+            if harvester.info()['name'] == obj.source.type:
+
+                # See if the plugin can fetch the harvest object
+                obj.fetch_started = datetime.datetime.now()
+                success = harvester.fetch_stage(obj)
+                obj.fetch_finished = datetime.datetime.now()
+                obj.save()
+                #TODO: retry times?
+                if success:
+                    # If no errors where found, call the import method
+                    harvester.import_stage(obj)
     finally:
         message.ack()
 
