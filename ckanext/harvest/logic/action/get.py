@@ -191,6 +191,7 @@ def _get_sources_for_user(context,data_dict):
 
     only_mine = data_dict.get('only_mine', False)
     only_active = data_dict.get('only_active',False)
+    only_organization = data_dict.get('organization') or data_dict.get('group')
 
     query = session.query(HarvestSource) \
                 .order_by(HarvestSource.created.desc())
@@ -215,6 +216,12 @@ def _get_sources_for_user(context,data_dict):
 
         log.debug('User %s with publishers %r has Harvest Sources: %r',
                   user, publishers_for_the_user, [(hs.id, hs.url) for hs in query])
+
+    if only_organization:
+        org = model.Group.get(only_organization)
+        if not org:
+            raise p.toolkit.ObjectNotFound('Could not find: %s' % only_organization)
+        query = query.filter(HarvestSource.publisher_id==org.id)
 
     sources = query.all()
 
