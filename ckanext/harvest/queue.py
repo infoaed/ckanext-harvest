@@ -11,6 +11,7 @@ from ckan.plugins import PluginImplementations
 
 from ckanext.harvest.model import HarvestJob, HarvestObject,HarvestGatherError
 from ckanext.harvest.interfaces import IHarvester
+from ckan import model
 
 log = logging.getLogger(__name__)
 assert not log.disabled
@@ -71,6 +72,10 @@ def gather_callback(message_data,message):
         id = message_data['harvest_job_id']
         log.debug('Received harvest job id: %s' % id)
 
+        # Get rid of any old session state that may still be around. This is
+        # a simple alternative to creating a new session for this callback.
+        model.Session.expire_all()
+
         # Get a publisher for the fetch queue
         publisher = get_fetch_publisher()
 
@@ -126,6 +131,10 @@ def fetch_callback(message_data, message):
         return
     log.info('Received harvest object id: %s' % id)
 
+    # Get rid of any old session state that may still be around. This is
+    # a simple alternative to creating a new session for this callback.
+    model.Session.expire_all()
+
     try:
         obj = HarvestObject.get(id)
     except Exception, e:
@@ -136,7 +145,6 @@ def fetch_callback(message_data, message):
         # By not sending the message.ack(), it will be retried by RabbitMQ
         # later.
         # Try to clear the issue with a remove
-        from ckan import model
         model.Session.remove()
         return
 

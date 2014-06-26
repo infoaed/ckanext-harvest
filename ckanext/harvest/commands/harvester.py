@@ -55,6 +55,9 @@ class Harvester(CkanCommand):
       harvester job-all
         - create new harvest jobs for all active sources.
 
+      harvester job-run {source-id}
+        - creates a new harvest job and runs it
+
     The commands should be run from the ckanext-harvest directory and expect
     a development.ini file to be present. Most of the time you will
     specify the config explicitly though::
@@ -131,6 +134,8 @@ class Harvester(CkanCommand):
         elif cmd == 'harvesters-info':
             harvesters_info = get_action('harvesters_info_show')()
             pprint(harvesters_info)
+        elif cmd == 'job-run':
+            self.job_run()
         else:
             print 'Command %s not recognized' % cmd
 
@@ -283,6 +288,10 @@ class Harvester(CkanCommand):
         context = {'model': model, 'user': self.admin_user['name'], 'session':model.Session}
         jobs = get_action('harvest_job_create_all')(context,{})
         print 'Created %s new harvest jobs' % len(jobs)
+
+    def job_run(self):
+        self.create_harvest_job()
+        self.run_harvester()
 
     def print_harvest_sources(self, sources):
         if sources:
