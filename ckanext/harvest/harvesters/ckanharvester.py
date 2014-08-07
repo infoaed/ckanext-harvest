@@ -254,6 +254,9 @@ class CKANHarvester(HarvesterBase):
                     package_dict['groups'] = []
                 package_dict['groups'].extend([g for g in default_groups if g not in package_dict['groups']])
 
+            if harvest_object.source.publisher_id:
+                package_dict['owner_org'] = harvest_object.source.publisher_id
+
             # Set default extras if needed
             default_extras = self.config.get('default_extras',{})
             if default_extras:
