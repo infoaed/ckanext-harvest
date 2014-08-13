@@ -138,7 +138,7 @@ class HarvesterBase(SingletonPlugin):
             }
 
             tags = package_dict.get('tags', [])
-            tags = [munge_tag(t) for t in tags]
+            tags = [munge_tag(t) for t in tags if munge_tag(t) != '']
             tags = list(set(tags))
             package_dict['tags'] = tags
 
@@ -147,6 +147,10 @@ class HarvesterBase(SingletonPlugin):
             data_dict['id'] = package_dict['id']
             try:
                 existing_package_dict = get_action('package_show')(context, data_dict)
+
+                # In case name has been modified when first importing. See issue #101.
+                package_dict['name'] = existing_package_dict['name']
+
                 # Check modified date
                 if not 'metadata_modified' in package_dict or \
                    package_dict['metadata_modified'] > existing_package_dict.get('metadata_modified'):
@@ -161,6 +165,10 @@ class HarvesterBase(SingletonPlugin):
 
             except NotFound:
                 # Package needs to be created
+
+                # Get rid of auth audit on the context otherwise we'll get an
+                # exception
+                context.pop('__auth_audit', None)
 
                 # Check if name has not already been used
                 package_dict['name'] = self._check_name(package_dict['name'])
