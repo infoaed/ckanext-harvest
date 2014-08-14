@@ -14,6 +14,7 @@ from ckan.lib.navl.dictization_functions import DataError
 from ckanext.harvest.logic.schema import harvest_source_form_schema
 from ckanext.harvest.lib import HarvestError, pager_url
 from ckan.lib.helpers import Page
+from ckanext.harvest.logic import HarvestJobExists
 
 import logging
 log = logging.getLogger(__name__)
@@ -234,6 +235,9 @@ class ViewController(BaseController):
         except p.toolkit.NotAuthorized,e:
             abort(401,self.not_auth_message)
         except HarvestError, e:
+            msg = 'Could not create harvest job: %s' % str(e)
+            h.flash_error(msg)
+        except HarvestJobExists, e:
             msg = 'Could not create harvest job: %s' % str(e)
             h.flash_error(msg)
         except Exception, e:

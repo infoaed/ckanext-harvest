@@ -63,7 +63,7 @@ class HarvestAuthBaseCase():
         # Refresh
         res = self.app.get('/harvest/refresh/%s' % source.id, status=status, extra_environ=extra_environ)
 
-    def _test_auth_allowed(self,user_name,auth_profile=None):
+    def _test_auth_allowed(self,user_name):
 
         extra_environ={'REMOTE_USER': user_name.encode('utf8')}
 
@@ -74,10 +74,7 @@ class HarvestAuthBaseCase():
         # Create
         res = self.app.get('/harvest/new', extra_environ=extra_environ)
         assert 'New harvest source' in res
-        if auth_profile == 'publisher':
-            assert 'publisher_id' in res
-        else:
-            assert not 'publisher_id' in res
+        assert 'publisher_id' in res
 
         fv = res.forms['source-new']
         fv['url'] = u'http://test-source.com'
@@ -86,8 +83,7 @@ class HarvestAuthBaseCase():
         fv['description'] = u'Test harvest source'
         fv['config'] = u'{"a":1,"b":2}'
 
-        if auth_profile == 'publisher':
-            fv['publisher_id'] = self.publisher1.id
+        fv['publisher_id'] = self.publisher1.id
 
         res = fv.submit('save', extra_environ=extra_environ)
         assert not 'Error' in res, res
@@ -105,10 +101,7 @@ class HarvestAuthBaseCase():
         # Edit
         res = self.app.get('/harvest/edit/%s' % source.id, extra_environ=extra_environ)
         assert 'Edit harvest source' in res
-        if auth_profile == 'publisher':
-            assert 'publisher_id' in res
-        else:
-            assert not 'publisher_id' in res
+        assert 'publisher_id' in res
 
         fv = res.forms['source-new']
         fv['title'] = u'Test harvest source Updated'
@@ -127,6 +120,13 @@ class HarvestAuthBaseCase():
 
 
 class TestAuth(FunctionalTestCase, HarvestAuthBaseCase):
+
+    @classmethod
+    def setup_class(cls):
+        if (config.get('ckan.harvest.auth.profile') != 'publisher'):
+            raise SkipTest('Skipping publisher auth profile tests. Set ckan.harvest.auth.profile = \'publisher\' to run them')
+
+        super(TestAuth,cls).setup_class()
 
     def setup(self):
 
