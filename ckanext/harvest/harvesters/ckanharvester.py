@@ -6,8 +6,8 @@ from ckan.model import Session, Package
 from ckan.logic import ValidationError, NotFound, get_action
 from ckan.lib.helpers import json
 
-from ckanext.harvest.model import HarvestJob, HarvestObject, HarvestGatherError, \
-                                    HarvestObjectError
+from ckanext.harvest.model import HarvestJob, HarvestObject, \
+                                  HarvestObjectError, HOExtra
 
 from ckanclient import CkanClient
 
@@ -99,7 +99,7 @@ class CKANHarvester(HarvesterBase):
                 except NotFound,e:
                     raise ValueError('User not found')
 
-            for key in ('read_only','force_all'):
+            for key in ('force_all'):
                 if key in config_obj:
                     if not isinstance(config_obj[key],bool):
                         raise ValueError('%s must be boolean' % key)
@@ -109,9 +109,8 @@ class CKANHarvester(HarvesterBase):
 
         return config
 
-
-    def gather_stage(self,harvest_job):
-        log.debug('In CKANHarvester gather_stage (%s)' % harvest_job.source.url)
+    def gather_stage(self, harvest_job):
+        log.debug('In CKANHarvester gather_stage (%s)', harvest_job.source.url)
         get_all_packages = True
         package_ids = []
 
@@ -130,8 +129,11 @@ class CKANHarvester(HarvesterBase):
         base_rest_url = base_url + self._get_rest_api_offset()
         base_search_url = base_url + self._get_search_api_offset()
 
-        if (previous_job and not previous_job.gather_errors and not len(previous_job.objects) == 0):
-            if not self.config.get('force_all',False):
+        # Under normal circumstances we can just get the packages modified
+        # since the last job
+        if (previous_job and not previous_job.gather_errors and
+                len(previous_job.objects)):
+            if not self.config.get('force_all'):
                 get_all_packages = False
 
                 # Request only the packages modified since last harvest job
@@ -147,8 +149,10 @@ class CKANHarvester(HarvesterBase):
                             url = base_rest_url + '/revision/%s' % revision_id
                             try:
                                 content = self._get_content(url)
-                            except Exception,e:
-                                self._save_gather_error('Unable to get content for URL: %s: %s' % (url, str(e)),harvest_job)
+                            except Exception, e:
+                                self._save_gather_error(
+                                    'Unable to get content for URL: %s: %s' %
+                                    (url, e), harvest_job)
                                 continue
 
                             revision = json.loads(content)
@@ -159,47 +163,50 @@ class CKANHarvester(HarvesterBase):
                         log.info('No packages have been updated on the remote CKAN instance since the last harvest job')
                         return None
 
-                except urllib2.HTTPError,e:
+                except urllib2.HTTPError, e:
                     if e.getcode() == 400:
                         log.info('CKAN instance %s does not suport revision filtering' % base_url)
                         get_all_packages = True
                     else:
-                        self._save_gather_error('Unable to get content for URL: %s: %s' % (url, str(e)),harvest_job)
+                        self._save_gather_error(
+                            'Unable to get content for URL: %s: %s' %
+                            (url, e), harvest_job)
                         return None
 
-
-
+        # It wasn't possible to get just the latest changed datasets, so simply
+        # get all of them.
         if get_all_packages:
             # Request all remote packages
             url = base_rest_url + '/package'
             try:
                 content = self._get_content(url)
-            except Exception,e:
-                self._save_gather_error('Unable to get content for URL: %s: %s' % (url, str(e)),harvest_job)
+            except Exception, e:
+                self._save_gather_error('Unable to get content for URL: %s: %s'
+                                        % (url, e), harvest_job)
                 return None
 
             package_ids = json.loads(content)
 
         try:
             object_ids = []
-            if len(package_ids):
-                for package_id in package_ids:
-                    # Create a new HarvestObject for this identifier
-                    obj = HarvestObject(guid = package_id, job = harvest_job)
-                    obj.save()
-                    object_ids.append(obj.id)
+            if not package_ids:
+                self._save_gather_error('No packages received for URL: %s' %
+                                        url, harvest_job)
+                return None
 
-                return object_ids
+            # Create objects for each dataset at the remote CKAN
+            for package_id in package_ids:
+                # Create a new HarvestObject for this identifier
+                obj = HarvestObject(guid=package_id, job=harvest_job)
+                obj.save()
+                object_ids.append(obj.id)
 
-            else:
-               self._save_gather_error('No packages received for URL: %s' % url,
-                       harvest_job)
-               return None
+            return object_ids
+
         except Exception, e:
-            self._save_gather_error('%r'%e.message,harvest_job)
+            self._save_gather_error('%r' % e.message, harvest_job)
 
-
-    def fetch_stage(self,harvest_object):
+    def fetch_stage(self, harvest_object):
         log.debug('In CKANHarvester fetch_stage')
 
         self._set_config(harvest_object.job.source.config)
@@ -211,94 +218,75 @@ class CKANHarvester(HarvesterBase):
         # Get contents
         try:
             content = self._get_content(url)
-        except Exception,e:
-            self._save_object_error('Unable to get content for package: %s: %r' % \
-                                        (url, e),harvest_object)
+        except Exception, e:
+            self._save_object_error(
+                'Unable to get content for package: %s: %r' % (url, e),
+                harvest_object)
             return None
 
         # Save the fetched contents in the HarvestObject
         harvest_object.content = content
         harvest_object.save()
+
+        # Extract the modification date
+        try:
+            dataset = json.loads(content)
+        except ValueError, e:
+            self._save_object_error(
+                'CKAN content could not be deserialized: %s: %r' % (url, e),
+                harvest_object)
+            return None
+        modified = dataset.get('metadata_modified')
+        # e.g. "2014-05-10T02:22:05.483412"
+        if not modified:
+            self._save_object_error(
+                'CKAN content did not have metadata_modified: %s' % url,
+                harvest_object)
+            return None
+
+        # Set the HOExtra.status
+        previous_obj = model.Session.query(HarvestObject) \
+                            .filter_by(guid=harvest_object.guid) \
+                            .filter_by(current=True) \
+                            .one()
+        if previous_obj:
+            # See if the object has changed
+            previous_modified = self._get_object_extra(harvest_object,
+                                                       'modified')
+            if previous_modified == modified:
+                log.info('Package with GUID %s not updated, skipping...' %
+                         harvest_object.guid)
+                return None
+            if previous_modified > modified:
+                self._save_object_error('CKAN modification date is earlier than when it was last harvested! %s Last harvest: %s This harvest: %s' %
+                                        (url, previous_modified, modified),
+                                        harvest_object)
+            log.info('Package with GUID %s exists and needs to be updated' %
+                     harvest_object.guid)
+            status = 'changed'
+        else:
+            status = 'new'
+
+        harvest_object.extras.append(HOExtra(key='status', value=status))
+        harvest_object.extras.append(HOExtra(key='modified', value=modified))
+        harvest_object.extras.append(HOExtra(key='url', value=url))
+        harvest_object.save()
+
         return True
 
-    def import_stage(self,harvest_object):
-        log.debug('In CKANHarvester import_stage')
-        if not harvest_object:
-            log.error('No harvest object received')
-            return False
-
-        if harvest_object.content is None:
-            self._save_object_error('Empty content for object %s' % harvest_object.id,
-                    harvest_object, 'Import')
-            return False
-
-        self._set_config(harvest_object.job.source.config)
-
+    def get_package_dict(self, harvest_object, package_dict_defaults,
+                         source_config):
         try:
-            package_dict = json.loads(harvest_object.content)
-
-            # Set default tags if needed
-            default_tags = self.config.get('default_tags',[])
-            if default_tags:
-                if not 'tags' in package_dict:
-                    package_dict['tags'] = []
-                package_dict['tags'].extend([t for t in default_tags if t not in package_dict['tags']])
-
-            # Ignore remote groups for the time being
-            del package_dict['groups']
-
-            # Set default groups if needed
-            default_groups = self.config.get('default_groups',[])
-            if default_groups:
-                if not 'groups' in package_dict:
-                    package_dict['groups'] = []
-                package_dict['groups'].extend([g for g in default_groups if g not in package_dict['groups']])
-
-            if harvest_object.source.publisher_id:
-                package_dict['owner_org'] = harvest_object.source.publisher_id
-
-            # Set default extras if needed
-            default_extras = self.config.get('default_extras',{})
-            if default_extras:
-                override_extras = self.config.get('override_extras',False)
-                if not 'extras' in package_dict:
-                    package_dict['extras'] = {}
-                for key,value in default_extras.iteritems():
-                    if not key in package_dict['extras'] or override_extras:
-                        # Look for replacement strings
-                        if isinstance(value,basestring):
-                            value = value.format(harvest_source_id=harvest_object.job.source.id,
-                                     harvest_source_url=harvest_object.job.source.url.strip('/'),
-                                     harvest_source_title=harvest_object.job.source.title,
-                                     harvest_job_id=harvest_object.job.id,
-                                     harvest_object_id=harvest_object.id,
-                                     dataset_id=package_dict['id'])
-
-                        package_dict['extras'][key] = value
-
-            result = self._create_or_update_package(package_dict,harvest_object)
-
-            if result and self.config.get('read_only',False) == True:
-
-                package = model.Package.get(package_dict['id'])
-
-                # Clear default permissions
-                model.clear_user_roles(package)
-
-                # Setup harvest user as admin
-                user_name = self.config.get('user',u'harvest')
-                user = model.User.get(user_name)
-                pkg_role = model.PackageRole(package=package, user=user, role=model.Role.ADMIN)
-
-                # Other users can only read
-                for user_name in (u'visitor',u'logged_in'):
-                    user = model.User.get(user_name)
-                    pkg_role = model.PackageRole(package=package, user=user, role=model.Role.READER)
-
-
-        except ValidationError,e:
-            self._save_object_error('Invalid package with GUID %s: %r' % (harvest_object.guid, e.error_dict),
-                    harvest_object, 'Import')
-        except Exception, e:
-            self._save_object_error('%r'%e,harvest_object,'Import')
-
+            package_dict_harvested = json.loads(harvest_object.content)
+        except ValueError, e:
+            self._save_object_error('CKAN content could not be deserialized: %s: %r' % \
+                                    (harvest_object.url, e), harvest_object)
+            return None
+        package_dict = package_dict_defaults.merge(package_dict_harvested)
+        # Ignore remote groups for the time being
+        del package_dict['groups']
+        override_extras = source_config.get('override_extras', False)
+        if override_extras:
+            package_dict['extras'].update(package_dict_defaults['extras'])
+        source_config['clean_tags'] = True
+        return package_dict
