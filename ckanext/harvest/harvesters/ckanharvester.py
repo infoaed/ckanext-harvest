@@ -7,14 +7,13 @@ from ckan.logic import ValidationError, NotFound, get_action
 from ckan.lib.helpers import json
 
 from ckanext.harvest.model import HarvestJob, HarvestObject, \
-                                  HarvestObjectError, HOExtra
-
-from ckanclient import CkanClient
+                                  HarvestObjectError, HarvestObjectExtra
 
 import logging
 log = logging.getLogger(__name__)
 
 from base import HarvesterBase
+
 
 class CKANHarvester(HarvesterBase):
     '''
@@ -22,35 +21,38 @@ class CKANHarvester(HarvesterBase):
     '''
     config = None
 
-    api_version = '2'
+    api_version = 2
 
     def _get_rest_api_offset(self):
-        return '/api/%s/rest' % self.api_version
+        return '/api/%d/rest' % self.api_version
 
     def _get_search_api_offset(self):
-        return '/api/%s/search' % self.api_version
+        return '/api/%d/search' % self.api_version
 
     def _get_content(self, url):
         http_request = urllib2.Request(
             url = url,
         )
 
-        try:
-            api_key = self.config.get('api_key',None)
-            if api_key:
-                http_request.add_header('Authorization',api_key)
-            http_response = urllib2.urlopen(http_request)
+        api_key = self.config.get('api_key',None)
+        if api_key:
+            http_request.add_header('Authorization',api_key)
+        http_response = urllib2.urlopen(http_request)
 
-            return http_response.read()
+        return http_response.read()
+
+    def _get_group(self, base_url, group_name):
+        url = base_url + self._get_rest_api_offset() + '/group/' + group_name
+        try:
+            content = self._get_content(url)
+            return json.loads(content)
         except Exception, e:
             raise e
 
     def _set_config(self,config_str):
         if config_str:
             self.config = json.loads(config_str)
-
-            if 'api_version' in self.config:
-                self.api_version = self.config['api_version']
+            self.api_version = int(self.config['api_version'])
 
             log.debug('Using config: %r', self.config)
         else:
@@ -70,6 +72,12 @@ class CKANHarvester(HarvesterBase):
 
         try:
             config_obj = json.loads(config)
+
+            if 'api_version' in config_obj:
+                try:
+                    int(config_obj['api_version'])
+                except ValueError:
+                    raise ValueError('api_version must be an integer')
 
             if 'default_tags' in config_obj:
                 if not isinstance(config_obj['default_tags'],list):
@@ -137,8 +145,10 @@ class CKANHarvester(HarvesterBase):
                 get_all_packages = False
 
                 # Request only the packages modified since last harvest job
-                last_time = harvest_job.gather_started.isoformat()
+                last_time = previous_job.gather_finished.isoformat()
                 url = base_search_url + '/revision?since_time=%s' % last_time
+                # NB CKAN API v3 doesn't appear to have an equivalent yet (!)
+                # but try this one anyway, as it falls back to the next method.
 
                 try:
                     content = self._get_content(url)
@@ -156,7 +166,7 @@ class CKANHarvester(HarvesterBase):
                                 continue
 
                             revision = json.loads(content)
-                            for package_id in revision.packages:
+                            for package_id in revision['packages']:
                                 if not package_id in package_ids:
                                     package_ids.append(package_id)
                     else:
@@ -244,11 +254,11 @@ class CKANHarvester(HarvesterBase):
                 harvest_object)
             return None
 
-        # Set the HOExtra.status
+        # Set the HarvestObjectExtra.status
         previous_obj = model.Session.query(HarvestObject) \
                             .filter_by(guid=harvest_object.guid) \
                             .filter_by(current=True) \
-                            .one()
+                            .first()
         if previous_obj:
             # See if the object has changed
             previous_modified = self._get_object_extra(harvest_object,
@@ -267,9 +277,9 @@ class CKANHarvester(HarvesterBase):
         else:
             status = 'new'
 
-        harvest_object.extras.append(HOExtra(key='status', value=status))
-        harvest_object.extras.append(HOExtra(key='modified', value=modified))
-        harvest_object.extras.append(HOExtra(key='url', value=url))
+        harvest_object.extras.append(HarvestObjectExtra(key='status', value=status))
+        harvest_object.extras.append(HarvestObjectExtra(key='modified', value=modified))
+        harvest_object.extras.append(HarvestObjectExtra(key='url', value=url))
         harvest_object.save()
 
         return True
@@ -283,10 +293,114 @@ class CKANHarvester(HarvesterBase):
                                     (harvest_object.url, e), harvest_object)
             return None
         package_dict = package_dict_defaults.merge(package_dict_harvested)
-        # Ignore remote groups for the time being
-        del package_dict['groups']
         override_extras = source_config.get('override_extras', False)
         if override_extras:
             package_dict['extras'].update(package_dict_defaults['extras'])
         source_config['clean_tags'] = True
+
+        if package_dict.get('type') == 'harvest':
+            log.debug('Remote dataset is a harvest source, ignoring...')
+            return
+
+        remote_groups = source_config.get('remote_groups', None)
+        if not remote_groups in ('only_local', 'create'):
+            # Ignore remote groups
+            package_dict.pop('groups', None)
+        else:
+            if not 'groups' in package_dict:
+                package_dict['groups'] = []
+
+            # check if remote groups exist locally, otherwise remove
+            validated_groups = []
+            context = {'model': model, 'session': Session, 'user': 'harvest'}
+
+            for group_name in package_dict['groups']:
+                try:
+                    data_dict = {'id': group_name}
+                    group = get_action('group_show')(context, data_dict)
+                    if self.api_version == 1:
+                        validated_groups.append(group['name'])
+                    else:
+                        validated_groups.append(group['id'])
+                except NotFound, e:
+                    log.info('Group %s is not available' % group_name)
+                    if remote_groups == 'create':
+                        try:
+                            group = self._get_group(harvest_object.source.url, group_name)
+                        except:
+                            log.error('Could not get remote group %s' % group_name)
+                            continue
+
+                        for key in ['packages', 'created', 'users', 'groups', 'tags', 'extras', 'display_name']:
+                            group.pop(key, None)
+                        get_action('group_create')(context, group)
+                        log.info('Group %s has been newly created' % group_name)
+                        if self.api_version == 1:
+                            validated_groups.append(group['name'])
+                        else:
+                            validated_groups.append(group['id'])
+
+            package_dict['groups'] = validated_groups
+
+        context = {'model': model, 'session': Session, 'user': 'harvest'}
+
+        # Local harvest source organization
+        local_org = harvest_object.source.publisher_id
+
+        remote_orgs = source_config.get('remote_orgs', None)
+
+        if not remote_orgs in ('only_local', 'create'):
+            # Assign dataset to the source organization
+            package_dict['owner_org'] = local_org
+        else:
+            if not 'owner_org' in package_dict:
+                package_dict['owner_org'] = None
+
+            # check if remote org exist locally, otherwise remove
+            validated_org = None
+            remote_org = package_dict['owner_org']
+
+            if remote_org:
+                try:
+                    data_dict = {'id': remote_org}
+                    org = get_action('organization_show')(context, data_dict)
+                    validated_org = org['id']
+                except NotFound, e:
+                    log.info('Organization %s is not available' % remote_org)
+                    if remote_orgs == 'create':
+                        try:
+                            org = self._get_group(harvest_object.source.url, remote_org)
+                            for key in ['packages', 'created', 'users', 'groups', 'tags', 'extras', 'display_name', 'type']:
+                                org.pop(key, None)
+                            get_action('organization_create')(context, org)
+                            log.info('Organization %s has been newly created' % remote_org)
+                            validated_org = org['id']
+                        except:
+                            log.error('Could not get remote org %s' % remote_org)
+
+            package_dict['owner_org'] = validated_org or local_org
+
+        # Find any extras whose values are not strings and try to convert
+        # them to strings, as non-string extras are not allowed anymore in
+        # CKAN 2.0.
+        for key in package_dict['extras'].keys():
+            if not isinstance(package_dict['extras'][key], basestring):
+                try:
+                    package_dict['extras'][key] = json.dumps(
+                            package_dict['extras'][key])
+                except TypeError:
+                    # If converting to a string fails, just delete it.
+                    del package_dict['extras'][key]
+
+        # Convert dicts to lists (required for package_create/update)
+        package_dict['extras'] = [dict(key=key, value=package_dict['extras'][key])
+                                    for key in package_dict['extras']]
+        package_dict['tags'] = [dict(name=name)
+                                for name in package_dict['tags']]
+
+        # Clear remote url_type for resources (eg datastore, upload) as we
+        # are only creating normal resources with links to the remote ones
+        for resource in package_dict.get('resources', []):
+            resource.pop('url_type', None)
+
         return package_dict

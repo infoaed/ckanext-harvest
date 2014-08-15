@@ -47,6 +47,10 @@ def get_carrot_connection():
                             virtual_host=virtual_host,
                             backend_cls=backend_cls)
 
+def resubmit_jobs():
+    if config.get('ckan.harvest.mq.type') != 'redis':
+        return
+
 def get_publisher(routing_key):
     return Publisher(connection=get_carrot_connection(),
                      exchange=EXCHANGE_NAME,
@@ -94,6 +98,7 @@ def gather_callback(message_data,message):
                     harvester_found = True
                     # Get a list of harvest object ids from the plugin
                     job.gather_started = datetime.datetime.now()
+                    job.save()
                     harvest_object_ids = harvester.gather_stage(job)
                     job.gather_finished = datetime.datetime.now()
                     job.save()
@@ -109,9 +114,6 @@ def gather_callback(message_data,message):
                 err = HarvestGatherError(message=msg,job=job)
                 err.save()
                 log.error(msg)
-
-            job.status = u'Finished'
-            job.save()
 
         finally:
             publisher.close()
@@ -160,13 +162,42 @@ def fetch_callback(message_data, message):
 
                 # See if the plugin can fetch the harvest object
                 obj.fetch_started = datetime.datetime.now()
-                success = harvester.fetch_stage(obj)
+                obj.fetch_started = datetime.datetime.utcnow()
+                obj.state = "FETCH"
+                obj.save()
+                success_fetch = harvester.fetch_stage(obj)
                 obj.fetch_finished = datetime.datetime.now()
                 obj.save()
                 #TODO: retry times?
-                if success:
+                if success_fetch:
                     # If no errors where found, call the import method
-                    harvester.import_stage(obj)
+                    obj.import_started = datetime.datetime.utcnow()
+                    obj.state = "IMPORT"
+                    obj.save()
+                    success_import = harvester.import_stage(obj)
+                    obj.import_finished = datetime.datetime.utcnow()
+                    if success_import:
+                        obj.state = "COMPLETE"
+                    else:
+                        obj.state = "ERROR"
+                    obj.save()
+                else:
+                    obj.state = "ERROR"
+                    obj.save()
+                if obj.report_status:
+                    return
+                if obj.state == 'ERROR':
+                    obj.report_status = 'errored'
+                elif obj.current == False:
+                    obj.report_status = 'deleted'
+                elif len(model.Session.query(HarvestObject)
+                    .filter_by(package_id = obj.package_id)
+                    .limit(2)
+                    .all()) == 2:
+                    obj.report_status = 'updated'
+                else:
+                    obj.report_status = 'added'
+                obj.save()
     finally:
         message.ack()
 

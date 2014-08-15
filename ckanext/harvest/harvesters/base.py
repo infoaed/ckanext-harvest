@@ -3,6 +3,7 @@ import re
 import uuid
 
 from sqlalchemy.sql import update, bindparam
+from sqlalchemy.exc import InvalidRequestError
 
 from ckan import logic
 from ckan import model
@@ -31,9 +32,9 @@ def munge_tag(tag):
 
 def munge_tags(package_dict):
     tags = package_dict.get('tags', [])
-    tags = [munge_tag(t) for t in tags]
-    tags = list(set(tags))
-    package_dict['tags'] = tags
+    tags = [munge_tag(t['name']) for t in tags]
+    tags = remove_duplicates_in_a_list(tags)
+    package_dict['tags'] = [dict(name=name) for name in tags]
 
 
 def remove_duplicates_in_a_list(list_):
@@ -81,27 +82,43 @@ class HarvesterBase(SingletonPlugin):
             return None
 
     @staticmethod
-    def _save_gather_error(message,job):
+    def _save_gather_error(message, job):
         '''
         Helper function to create an error during the gather stage.
         '''
-        err = HarvestGatherError(message=message,job=job)
-        err.save()
-        log.error(message)
+        err = HarvestGatherError(message=message, job=job)
+        try:
+            err.save()
+        except InvalidRequestError:
+            Session.rollback()
+            err.save()
+        finally:
+            log.error(message)
 
     @staticmethod
-    def _save_object_error(message,obj,stage=u'Fetch'):
+    def _save_object_error(message, obj, stage=u'Fetch', line=None):
         '''
         Helper function to create an error during the fetch or import stage.
         '''
-        err = HarvestObjectError(message=message,object=obj,stage=stage)
-        err.save()
-        log.error(message)
+        err = HarvestObjectError(message=message,
+                                 object=obj,
+                                 stage=stage,
+                                 line=line)
+        try:
+            err.save()
+        except InvalidRequestError, e:
+            Session.rollback()
+            err.save()
+        finally:
+            log_message = '{0}, line {1}'.format(message,line) if line else message
+            log.debug(log_message)
 
     def _create_harvest_objects(self, remote_ids, harvest_job):
         '''
         Given a list of remote ids and a Harvest Job, create as many Harvest Objects and
-        return a list of its ids to be returned to the fetch stage.
+        return a list of their ids to be passed to the fetch stage.
+
+        TODO: Not sure it is worth keeping this function
         '''
         try:
             object_ids = []
@@ -134,6 +151,8 @@ class HarvesterBase(SingletonPlugin):
             'HarvesterBase.import_stage and override get_package_dict')
     def _create_or_update_package(self, package_dict, harvest_object):
         '''
+        DEPRECATED!
+
         Creates a new package or updates an exisiting one according to the
         package dictionary provided. The package dictionary should look like
         the REST API response for a package:
@@ -147,6 +166,9 @@ class HarvesterBase(SingletonPlugin):
         If the remote server provides the modification date of the remote
         package, add it to package_dict['metadata_modified'].
 
+        TODO: Not sure it is worth keeping this function. If useful it should
+        use the output of package_show logic function (maybe keeping support
+        for rest api based dicts
         '''
         try:
             # Change default schema
@@ -156,11 +178,14 @@ class HarvesterBase(SingletonPlugin):
 
             # Check API version
             if self.config:
-                api_version = self.config.get('api_version','2')
+                try:
+                    api_version = int(self.config.get('api_version', 2))
+                except ValueError:
+                    raise ValueError('api_version must be an integer')
                 #TODO: use site user when available
                 user_name = self.config.get('user',u'harvest')
             else:
-                api_version = '2'
+                api_version = 2
                 user_name = u'harvest'
 
             context = {
@@ -169,12 +194,14 @@ class HarvesterBase(SingletonPlugin):
                 'user': user_name,
                 'api_version': api_version,
                 'schema': schema,
+                'ignore_auth': True,
             }
 
-            tags = package_dict.get('tags', [])
-            tags = [munge_tag(t) for t in tags if munge_tag(t) != '']
-            tags = list(set(tags))
-            package_dict['tags'] = tags
+            if self.config and self.config.get('clean_tags', False):
+                tags = package_dict.get('tags', [])
+                tags = [munge_tag(t) for t in tags if munge_tag(t) != '']
+                tags = list(set(tags))
+                package_dict['tags'] = tags
 
             # Check if package exists
             data_dict = {}
@@ -191,11 +218,27 @@ class HarvesterBase(SingletonPlugin):
                     log.info('Package with GUID %s exists and needs to be updated' % harvest_object.guid)
                     # Update package
                     context.update({'id':package_dict['id']})
+                    package_dict.setdefault('name',
+                            existing_package_dict['name'])
                     new_package = get_action('package_update_rest')(context, package_dict)
 
                 else:
                     log.info('Package with GUID %s not updated, skipping...' % harvest_object.guid)
                     return
+
+                # Flag the other objects linking to this package as not current anymore
+                from ckanext.harvest.model import harvest_object_table
+                conn = Session.connection()
+                u = update(harvest_object_table) \
+                        .where(harvest_object_table.c.package_id==bindparam('b_package_id')) \
+                        .values(current=False)
+                conn.execute(u, b_package_id=new_package['id'])
+
+                # Flag this as the current harvest object
+
+                harvest_object.package_id = new_package['id']
+                harvest_object.current = True
+                harvest_object.save()
 
             except NotFound:
                 # Package needs to be created
@@ -204,28 +247,23 @@ class HarvesterBase(SingletonPlugin):
                 # exception
                 context.pop('__auth_audit', None)
 
-                # Check if name has not already been used
-                package_dict['name'] = self._check_name(package_dict['name'])
+                # Set name if not already there
+                package_dict.setdefault('name', self._gen_new_name(package_dict['title']))
 
                 log.info('Package with GUID %s does not exist, let\'s create it' % harvest_object.guid)
+                harvest_object.current = True
+                harvest_object.package_id = package_dict['id']
+                # Defer constraints and flush so the dataset can be indexed with
+                # the harvest object id (on the after_show hook from the harvester
+                # plugin)
+                harvest_object.add()
+
+                model.Session.execute('SET CONSTRAINTS harvest_object_package_id_fkey DEFERRED')
+                model.Session.flush()
+
                 new_package = get_action('package_create_rest')(context, package_dict)
-                harvest_object.package_id = new_package['id']
 
-            # Flag the other objects linking to this package as not current anymore
-            from ckanext.harvest.model import harvest_object_table
-            conn = Session.connection()
-            u = update(harvest_object_table) \
-                    .where(harvest_object_table.c.package_id==bindparam('b_package_id')) \
-                    .values(current=False)
-            conn.execute(u, b_package_id=new_package['id'])
             Session.commit()
-
-            # Flag this as the current harvest object
-
-            harvest_object.package_id = new_package['id']
-            harvest_object.current = True
-            harvest_object.save()
-
             return True
 
         except ValidationError,e:
@@ -293,15 +331,19 @@ class HarvesterBase(SingletonPlugin):
             return True
 
         # Set defaults for the package_dict, mainly from the source_config
-        package_dict_defaults = {}
+        package_dict_defaults = PackageDictDefaults()
         package_dict_defaults['id'] = harvest_object.package_id or unicode(uuid.uuid4())
         existing_dataset = model.Package.get(harvest_object.source.id)
         if existing_dataset:
             package_dict_defaults['name'] = existing_dataset.name
-        if existing_dataset.owner_org:
-            package_dict_defaults['owner_org'] = existing_dataset.owner_org
-        else:
+        if source_config.get('remote_orgs') not in ('only_local', 'create'):
+            # Assign owner_org to the harvest_source's publisher
+            #master would get the harvest_object.source.publisher_id this way:
+            #source_dataset = get_action('package_show')(context, {'id': harvest_object.source.id})
+            #local_org = source_dataset.get('owner_org')
             package_dict_defaults['owner_org'] = harvest_object.source.publisher_id
+        elif existing_dataset and existing_dataset.owner_org:
+            package_dict_defaults['owner_org'] = existing_dataset.owner_org
         package_dict_defaults['tags'] = source_config.get('default_tags', [])
         package_dict_defaults['groups'] = source_config.get('default_groups', [])
         default_extras = source_config.get('default_extras', {})
@@ -318,32 +360,15 @@ class HarvesterBase(SingletonPlugin):
                 if isinstance(value, basestring):
                     value = value.format(env)
                 package_dict_defaults['extras'][key] = value
-        def merge(self, package_dict):
-            '''Returns a dict based on the passed-in package_dict and adding
-            default values from self (package_dict_defaults). Where the key is
-            a string, the default is a fall-back for a blank value in the
-            package_dict. Where the key is a list or dict, the values are
-            merged.'''
-            merged = package_dict.copy()
-            for key in self:
-                if isinstance(self[key], list):
-                    merged[key] = self[key] + merged.get(key, [])
-                    merged[key] = remove_duplicates_in_a_list(merged[key])
-                elif isinstance(self[key], dict):
-                    merged[key] = dict(self[key].items() +
-                                       merged.get(key, {}).items())
-                elif isinstance(self[key], basestring):
-                    merged[key] = merged.get(key) or self[key]
-                else:
-                    raise NotImplementedError()
-        package_dict_defaults.merge = merge
 
         try:
             package_dict = self.get_package_dict(harvest_object,
-                                                 package_dict_defaults)
+                                                 package_dict_defaults,
+                                                 source_config)
         except Exception, e:
-            log.error('Harvest error in get_package_dict %r', harvest_object)
+            log.exception('Harvest error in get_package_dict %r', harvest_object)
             self._save_object_error('System error', harvest_object, 'Import')
+            return False
         if not package_dict:
             return False
 
@@ -385,6 +410,7 @@ class HarvesterBase(SingletonPlugin):
             if source_config.get('private_datasets', True):
                 package_dict['private'] = True
 
+            log.debug('package_create: %r', package_dict)
             try:
                 package_id = get_action('package_create')(context, package_dict)
                 log.info('Created new package %s with guid %s', package_id, harvest_object.guid)
@@ -396,6 +422,7 @@ class HarvesterBase(SingletonPlugin):
                 previous_object.current = False
             package_schema = logic.schema.default_update_package_schema()
             package_dict['id'] = harvest_object.package_id
+            log.debug('package_update: %r', package_dict)
             try:
                 package_id = get_action('package_update')(context, package_dict)
                 log.info('Updated package %s with guid %s', package_id, harvest_object.guid)
@@ -436,3 +463,25 @@ class HarvesterBase(SingletonPlugin):
         :rtype: dict
         '''
         pass
+
+class PackageDictDefaults(dict):
+    def merge(self, package_dict):
+        '''
+        Returns a dict based on the passed-in package_dict and adding default
+        values from self. Where the key is a string, the default is a
+        fall-back for a blank value in the package_dict. Where the key is a
+        list or dict, the values are merged.
+        '''
+        merged = package_dict.copy()
+        for key in self:
+            if isinstance(self[key], list):
+                merged[key] = self[key] + merged.get(key, [])
+                merged[key] = remove_duplicates_in_a_list(merged[key])
+            elif isinstance(self[key], dict):
+                merged[key] = dict(self[key].items() +
+                                    merged.get(key, {}).items())
+            elif isinstance(self[key], basestring):
+                merged[key] = merged.get(key) or self[key]
+            else:
+                raise NotImplementedError()
+        return merged
