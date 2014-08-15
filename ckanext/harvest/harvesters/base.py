@@ -2,6 +2,7 @@ import logging
 import re
 
 from sqlalchemy.sql import update,and_, bindparam
+from sqlalchemy.exc import InvalidRequestError
 
 from ckan import model
 from ckan.model import Session, Package
@@ -62,27 +63,43 @@ class HarvesterBase(SingletonPlugin):
             return None
 
     @staticmethod
-    def _save_gather_error(message,job):
+    def _save_gather_error(message, job):
         '''
         Helper function to create an error during the gather stage.
         '''
-        err = HarvestGatherError(message=message,job=job)
-        err.save()
-        log.error(message)
+        err = HarvestGatherError(message=message, job=job)
+        try:
+            err.save()
+        except InvalidRequestError:
+            Session.rollback()
+            err.save()
+        finally:
+            log.error(message)
 
     @staticmethod
-    def _save_object_error(message,obj,stage=u'Fetch'):
+    def _save_object_error(message, obj, stage=u'Fetch', line=None):
         '''
         Helper function to create an error during the fetch or import stage.
         '''
-        err = HarvestObjectError(message=message,object=obj,stage=stage)
-        err.save()
-        log.error(message)
+        err = HarvestObjectError(message=message,
+                                 object=obj,
+                                 stage=stage,
+                                 line=line)
+        try:
+            err.save()
+        except InvalidRequestError, e:
+            Session.rollback()
+            err.save()
+        finally:
+            log_message = '{0}, line {1}'.format(message,line) if line else message
+            log.debug(log_message)
 
     def _create_harvest_objects(self, remote_ids, harvest_job):
         '''
         Given a list of remote ids and a Harvest Job, create as many Harvest Objects and
-        return a list of its ids to be returned to the fetch stage.
+        return a list of their ids to be passed to the fetch stage.
+
+        TODO: Not sure it is worth keeping this function
         '''
         try:
             object_ids = []
@@ -113,6 +130,9 @@ class HarvesterBase(SingletonPlugin):
         If the remote server provides the modification date of the remote
         package, add it to package_dict['metadata_modified'].
 
+        TODO: Not sure it is worth keeping this function. If useful it should
+        use the output of package_show logic function (maybe keeping support
+        for rest api based dicts
         '''
         try:
             # Change default schema
@@ -122,11 +142,14 @@ class HarvesterBase(SingletonPlugin):
 
             # Check API version
             if self.config:
-                api_version = self.config.get('api_version','2')
+                try:
+                    api_version = int(self.config.get('api_version', 2))
+                except ValueError:
+                    raise ValueError('api_version must be an integer')
                 #TODO: use site user when available
                 user_name = self.config.get('user',u'harvest')
             else:
-                api_version = '2'
+                api_version = 2
                 user_name = u'harvest'
 
             context = {
@@ -135,12 +158,14 @@ class HarvesterBase(SingletonPlugin):
                 'user': user_name,
                 'api_version': api_version,
                 'schema': schema,
+                'ignore_auth': True,
             }
 
-            tags = package_dict.get('tags', [])
-            tags = [munge_tag(t) for t in tags if munge_tag(t) != '']
-            tags = list(set(tags))
-            package_dict['tags'] = tags
+            if self.config and self.config.get('clean_tags', False):
+                tags = package_dict.get('tags', [])
+                tags = [munge_tag(t) for t in tags if munge_tag(t) != '']
+                tags = list(set(tags))
+                package_dict['tags'] = tags
 
             # Check if package exists
             data_dict = {}
@@ -157,11 +182,27 @@ class HarvesterBase(SingletonPlugin):
                     log.info('Package with GUID %s exists and needs to be updated' % harvest_object.guid)
                     # Update package
                     context.update({'id':package_dict['id']})
+                    package_dict.setdefault('name',
+                            existing_package_dict['name'])
                     new_package = get_action('package_update_rest')(context, package_dict)
 
                 else:
                     log.info('Package with GUID %s not updated, skipping...' % harvest_object.guid)
                     return
+
+                # Flag the other objects linking to this package as not current anymore
+                from ckanext.harvest.model import harvest_object_table
+                conn = Session.connection()
+                u = update(harvest_object_table) \
+                        .where(harvest_object_table.c.package_id==bindparam('b_package_id')) \
+                        .values(current=False)
+                conn.execute(u, b_package_id=new_package['id'])
+
+                # Flag this as the current harvest object
+
+                harvest_object.package_id = new_package['id']
+                harvest_object.current = True
+                harvest_object.save()
 
             except NotFound:
                 # Package needs to be created
@@ -170,28 +211,23 @@ class HarvesterBase(SingletonPlugin):
                 # exception
                 context.pop('__auth_audit', None)
 
-                # Check if name has not already been used
-                package_dict['name'] = self._check_name(package_dict['name'])
+                # Set name if not already there
+                package_dict.setdefault('name', self._gen_new_name(package_dict['title']))
 
                 log.info('Package with GUID %s does not exist, let\'s create it' % harvest_object.guid)
+                harvest_object.current = True
+                harvest_object.package_id = package_dict['id']
+                # Defer constraints and flush so the dataset can be indexed with
+                # the harvest object id (on the after_show hook from the harvester
+                # plugin)
+                harvest_object.add()
+
+                model.Session.execute('SET CONSTRAINTS harvest_object_package_id_fkey DEFERRED')
+                model.Session.flush()
+
                 new_package = get_action('package_create_rest')(context, package_dict)
-                harvest_object.package_id = new_package['id']
 
-            # Flag the other objects linking to this package as not current anymore
-            from ckanext.harvest.model import harvest_object_table
-            conn = Session.connection()
-            u = update(harvest_object_table) \
-                    .where(harvest_object_table.c.package_id==bindparam('b_package_id')) \
-                    .values(current=False)
-            conn.execute(u, b_package_id=new_package['id'])
             Session.commit()
-
-            # Flag this as the current harvest object
-
-            harvest_object.package_id = new_package['id']
-            harvest_object.current = True
-            harvest_object.save()
-
             return True
 
         except ValidationError,e:

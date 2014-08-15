@@ -24,7 +24,7 @@
     <i class="icon-edit"></i>
     Edit source
   </a>
-  <a py:if="h.check_access('harvest_job_create', {'source_id':c.source.id})" class="btn btn-primary" href="/harvest/refresh/${c.source.id}">
+  <a py:if="h.check_access('harvest_job_create', {'source_id':c.source.id})" class="btn btn-primary" py:attrs="{} if c.source.active else {'disabled': 'disabled'}" href="/harvest/refresh/${c.source.id}">
     <i class="icon-refresh"></i>
     Refresh source
   </a>
@@ -66,7 +66,7 @@
             <td>-</td>
             </py:if>
         </tr>
-        <tr py:if="job_detail">
+        <tr py:if="job_detail" style="display: none">
             <th>User</th>
             <td>${c.source.user_id}</td>
         </tr>
@@ -91,14 +91,24 @@
         <tr class="harvest-status">
             <th>Status</th>
             <td>
-                <a name="errors"/>Last Harvest Errors: ${c.source.status.last_harvest_statistics.errors}<br/>
+              <p py:if="c.source.status.running_job">
+                <strong>
+                  Harvesting in progress: ${c.source.status.running_job}<br/>
+                </strong>
+              </p>
+              <p py:if="not c.source.status.running_job">
+                Last Harvest: <br/>
+              </p>
+              Date: ${c.source.status.last_job.created} <br/>
+              <py:if test="c.source.status.last_job">
+                <a name="errors"/>Harvest Errors: ${c.source.status.last_job.stats.get('errored', 0)}<br/>
                 <py:choose>
-                    <py:when test="len(c.source.status.last_harvest_errors.gather)>0">
+                    <py:when test="len(c.source.status.last_job.gather_errors)>0">
                         <i>Gathering errors</i>
                         <ul>
-                        <li py:for="error in c.source.status.last_harvest_errors.gather">
+                        <li py:for="error in c.source.status.last_job.gather_errors">
                             <?python
-                                lines = error.split('\n')
+                                lines = error.get('message', '').split('\n')
                             ?>
                             <div py:for="line in lines" class="message">${line}</div>
                         </li>
@@ -106,12 +116,12 @@
                     </py:when>
                 </py:choose>
                 <py:choose>
-                    <py:when test="len(c.source.status.last_harvest_errors.object)>0">
-                       <i>Object errors</i>
+                    <py:when test="len(c.source.status.last_job.object_errors)>0">
+                        <i>Object errors</i>
                         <ul>
-                        <li py:for="error in c.source.status.last_harvest_errors.object">
-                            <div class="message">Harvest of GUID <a href="${g.site_url}/harvest/object/${error.object_id}">${error.object_guid}</a></div>
-                            <div py:for="section in error['message'].split('\n\n')" class="message-section">
+                        <li py:for="error in c.source.status.last_job.object_errors">
+                            <div class="message">Harvest of GUID <a href="${g.site_url}/harvest/object/${error.harvest_object_id}">${error.object.guid}</a></div>
+                            <div py:for="section in error.message.split('\n\n')" class="message-section">
                               <div py:for="line in section.split('\n')" class="message">
                                 ${line}
                               </div>
@@ -120,20 +130,23 @@
                         </ul>
                     </py:when>
                 </py:choose>
-
-                Last Harvest Added: ${c.source.status.last_harvest_statistics.added}<br/>
-                Last Harvest Updated: ${c.source.status.last_harvest_statistics.updated}<br/>
-                Last Harvest: ${c.source.status.last_harvest_request} <br/>
-                Next Harvest: ${c.source.status.next_harvest}
+                Harvested records:
+                <py:for each="result in ['new', 'updated']">
+                  ${result}: ${c.source.status.last_job.stats.get(result, 0)}
+                </py:for>
+                <br/>
+              </py:if>
+              </td>
+        </tr>
+        <tr>
+            <th>Next harvest</th>
+            <td>
+              ${c.source.status.next_harvest}
             </td>
         </tr>
         <tr>
-            <th>Total Errors (in all harvests)</th>
-            <td>${c.source.status.overall_statistics.errors}</td>
-        </tr>
-        <tr>
-            <th>Total Datasets (in all harvests)</th>
-            <td>${c.source.status.overall_statistics.added}</td>
+            <th>Total Datasets (from all harvests)</th>
+            <td>${c.source.status.total_datasets}</td>
         </tr>
         </py:if>
         <tr>

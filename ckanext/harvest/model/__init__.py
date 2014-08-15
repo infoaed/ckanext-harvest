@@ -70,22 +70,25 @@ def setup():
             if not 'title' in [column['name'] for column in columns]:
                 log.debug('Harvest tables updating to v2')
                 migrate_v2()
-            columns = inspector.get_columns('harvest_object')
-            if not 'harvest_source_reference' in [column['name'] for column in columns]:
+            obj_columns = inspector.get_columns('harvest_object')
+            if not 'harvest_source_reference' in \
+                    [column['name'] for column in obj_columns]:
                 log.debug('Harvest tables updating to v3_dgu')
                 migrate_v3_dgu()
             if not 'frequency' in [column['name'] for column in columns]:
                 log.debug('Harvest tables need to be updated')
                 migrate_v3()
 
-            # Check if this instance has harvest source datasets
-            source_ids = Session.query(HarvestSource.id).filter_by(active=True).all()
-            source_package_ids = Session.query(model.Package.id).filter_by(type=u'harvest', state='active').all()
-            sources_to_migrate = set(source_ids) - set(source_package_ids)
-            if sources_to_migrate:
-                log.debug('Creating harvest source datasets for %i existing sources', len(sources_to_migrate))
-                sources_to_migrate = [s[0] for s in sources_to_migrate]
-                migrate_v3_create_datasets(sources_to_migrate)
+            # DGU HACK - we are not converting from harvest sources to datasets so
+            # this is commented out
+            ## Check if this instance has harvest source datasets
+            #source_ids = Session.query(HarvestSource.id).filter_by(active=True).all()
+            #source_package_ids = Session.query(model.Package.id).filter_by(type=u'harvest', state='active').all()
+            #sources_to_migrate = set(source_ids) - set(source_package_ids)
+            #if sources_to_migrate:
+            #    log.debug('Creating harvest source datasets for %i existing sources', len(sources_to_migrate))
+            #    sources_to_migrate = [s[0] for s in sources_to_migrate]
+            #    migrate_v3_create_datasets(sources_to_migrate)
 
     else:
         log.debug('Harvest table creation deferred')
@@ -508,9 +511,11 @@ ALTER TABLE harvest_object_extra
 ALTER TABLE harvest_object_extra
     ADD CONSTRAINT harvest_object_extra_harvest_object_id_fkey FOREIGN KEY (harvest_object_id) REFERENCES harvest_object(id);
 
-UPDATE harvest_object set state = 'COMPLETE';
+UPDATE harvest_object set state = 'COMPLETE' where package_id is not null;
+UPDATE harvest_object set state = 'ERROR' where package_id is null;
 UPDATE harvest_object set retry_times = 0;
-UPDATE harvest_object set report_status = 'new';
+UPDATE harvest_object set report_status = 'updated' where package_id is not null;
+UPDATE harvest_object set report_status = 'errored' where package_id is null;
 UPDATE harvest_source set frequency = 'MANUAL';
 
 ALTER TABLE harvest_object DROP CONSTRAINT harvest_object_package_id_fkey;

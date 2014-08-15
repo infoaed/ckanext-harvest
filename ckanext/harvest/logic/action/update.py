@@ -48,7 +48,7 @@ def harvest_source_update(context,data_dict):
         session.rollback()
         raise ValidationError(errors,_error_summary(errors))
 
-    fields = ['url','title','type','description','user_id','publisher_id']
+    fields = ['url','title','type','description','user_id','publisher_id','frequency']
     for f in fields:
         if f in data and data[f] is not None:
             if f == 'url':
@@ -228,6 +228,7 @@ def harvest_jobs_run(context,data_dict):
                           .order_by(HarvestObject.import_finished.desc())
 
                 if objects.count() == 0:
+                    log.debug('HarvestJob finished - %s', job['id'])
                     job_obj = HarvestJob.get(job['id'])
                     job_obj.status = u'Finished'
 
@@ -239,10 +240,13 @@ def harvest_jobs_run(context,data_dict):
                     if last_object:
                         job_obj.finished = last_object.import_finished
                     job_obj.save()
-                    # Reindex the harvest source dataset so it has the latest
-                    # status
-                    get_action('harvest_source_reindex')(context,
-                        {'id': job_obj.source.id})
+                    # DGU Hack - we don't have harvest_sources in solr so it's commented out
+                    ## Reindex the harvest source dataset so it has the latest
+                    ## status
+                    #get_action('harvest_source_reindex')(context,
+                    #    {'id': job_obj.source.id})
+                else:
+                    log.debug('HarvestJob not yet finished - %s', job['id'])
 
     # resubmit old redis tasks
     resubmit_jobs()

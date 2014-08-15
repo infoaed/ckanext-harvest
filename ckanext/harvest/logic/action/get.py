@@ -1,5 +1,7 @@
 import logging
 from sqlalchemy import or_
+from sqlalchemy import distinct
+
 import ckan.new_authz
 from ckan.model import User
 import datetime
@@ -44,10 +46,109 @@ def harvest_source_show(context,data_dict):
     if not source:
         raise NotFound
 
-    if 'include_status' not in context:
-        context['include_status'] = True
+    data = harvest_source_dictize(source,context)
 
-    return harvest_source_dictize(source,context)
+    if context.get('include_status', True):
+        data['status'] = p.toolkit.get_action('harvest_source_show_status')(context, {'id': source.id})
+
+    return data
+
+
+@side_effect_free
+def harvest_source_show_status(context, data_dict):
+    '''
+    Returns a status report for a harvest source
+
+    Given a particular source, returns a dictionary containing information
+    about the source jobs, datasets created, errors, etc.
+    Note that this information is already included on the output of
+    harvest_source_show, under the 'status' field.
+
+    :param id: the id or name of the harvest source
+    :type id: string
+
+    :rtype: dictionary
+    '''
+
+    p.toolkit.check_access('harvest_source_show_status', context, data_dict)
+
+
+    model = context.get('model')
+
+    source = harvest_model.HarvestSource.get(data_dict['id'])
+    if not source:
+        raise p.toolkit.ObjectNotFound('Harvest source {0} does not exist'.format(data_dict['id']))
+
+    out = {
+           'job_count': 0,
+           'last_job': None,
+           'total_datasets': 0,
+           'running_job': None,
+           'next_harvest': 'Not yet scheduled',
+           'datasets': [],
+           }
+
+    jobs = harvest_model.HarvestJob.filter(source=source).all()
+
+    job_count = len(jobs)
+    if job_count == 0:
+        return out
+
+    out['job_count'] = job_count
+
+    # Running job
+    running_job = HarvestJob.filter(source=source,status=u'Running') \
+                            .order_by(HarvestJob.created.desc()).first()
+    if running_job:
+        if running_job.gather_started:
+            run_time = datetime.datetime.now() - running_job.gather_started
+            minutes, seconds = divmod(run_time.seconds, 60)
+            out['running_job'] = '%sm %ss' % (minutes, seconds)
+        else:
+            out['running_job'] = '(about to start)'
+        if not running_job.gather_finished:
+            out['running_job'] += ' - gathering records (%s so far)' % \
+                                  len(running_job.objects)
+        else:
+            out['running_job'] += ' - fetch and import of %s records' % \
+                                  len(running_job.objects)
+
+    # Get next scheduled job
+    next_job = HarvestJob.filter(source=source, status=u'New').first()
+    if next_job:
+        out['next_harvest'] = 'Scheduled to start within 10 minutes'
+
+    # Get the running or latest job
+    last_job = harvest_model.HarvestJob.filter(source=source) \
+               .order_by(harvest_model.HarvestJob.created.desc()).first()
+
+    if not last_job:
+        return out
+
+    context_ = context.copy()
+    context_['return_stats'] = True
+    context_['return_object_errors'] = True
+    context_['return_error_summary'] = True
+    out['last_job'] = harvest_job_dictize(last_job, context_)
+
+    # Datasets
+    packages = model.Session.query(distinct(HarvestObject.package_id),model.Package.name) \
+            .join(model.Package).join(HarvestSource) \
+            .filter(HarvestObject.source==source) \
+            .filter(HarvestObject.current==True) \
+            .filter(model.Package.state==u'active')
+    out['datasets'] = [package.name for package in packages]
+
+    # Overall statistics
+    packages = model.Session.query(model.Package) \
+            .join(harvest_model.HarvestObject) \
+            .filter(harvest_model.HarvestObject.harvest_source_id==source.id) \
+            .filter(harvest_model.HarvestObject.current==True) \
+            .filter(model.Package.state==u'active') \
+            .filter(model.Package.private==False)
+    out['total_datasets'] = packages.count()
+
+    return out
 
 @side_effect_free
 def harvest_source_list(context, data_dict):
@@ -194,14 +295,15 @@ def harvest_job_list(context,data_dict):
     if status:
         query = query.filter(HarvestJob.status==status)
 
+    query = query.order_by(HarvestJob.created.desc())
+
     # Have a max for safety
     query = query.offset(offset).limit(100)
-
-    query = query.order_by(HarvestJob.created.desc())
 
     jobs = query.all()
 
     context['return_error_summary'] = False
+    context['return_stats'] = False
     return [harvest_job_dictize(job,context) for job in jobs]
 
 @side_effect_free

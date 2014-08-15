@@ -94,7 +94,7 @@ class ViewController(BaseController):
     def _save_new(self):
         try:
             data_dict = dict(request.params)
-            self._check_data_dict(data_dict)
+            data_dict['user_id'] = c.userobj.id
             context = {'model':model, 'user':c.user, 'session':model.Session,
                        'schema':harvest_source_form_schema()}
 
@@ -156,11 +156,11 @@ class ViewController(BaseController):
         try:
             data_dict = dict(request.params)
             data_dict['id'] = id
-            self._check_data_dict(data_dict)
+            data_dict['user_id'] = c.userobj.id
             context = {'model':model, 'user':c.user, 'session':model.Session,
                        'schema':harvest_source_form_schema()}
 
-            source = p.toolkit.get_action('harvest_source_update')(context,data_dict)
+            p.toolkit.get_action('harvest_source_update')(context,data_dict)
 
             h.flash_success(_('Harvest source edited successfully.'))
             redirect('/harvest/%s' %id)
@@ -198,7 +198,7 @@ class ViewController(BaseController):
             c.source = p.toolkit.get_action('harvest_source_show')(context, {'id':id})
 
             c.page = Page(
-                collection=c.source['status']['packages'],
+                collection=c.source['status']['datasets'],
                 page=request.params.get('page', 1),
                 items_per_page=20,
                 url=pager_url
@@ -241,10 +241,11 @@ class ViewController(BaseController):
             msg = 'Could not create harvest job: %s' % str(e)
             h.flash_error(msg)
         except Exception, e:
+            log.exception('Error creating harvest job: %r', e)
             msg = 'An error occurred: [%s]' % str(e)
             h.flash_error(msg)
 
-        redirect(h.url_for('harvest'))
+        redirect(h.url_for('harvest_source', id=id))
 
     def show_object(self,id):
 

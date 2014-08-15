@@ -37,7 +37,7 @@ class Harvest(SingletonPlugin):
         map.connect('/harvest/new', controller=controller, action='new')
         map.connect('/harvest/edit/:id', controller=controller, action='edit')
         map.connect('/harvest/delete/:id',controller=controller, action='delete')
-        map.connect('/harvest/:id', controller=controller, action='read')
+        map.connect('harvest_source', '/harvest/:id', controller=controller, action='read')
 
         map.connect('harvesting_job_create', '/harvest/refresh/:id',controller=controller,
                 action='create_harvesting_job')
