@@ -12,7 +12,7 @@ from ckan.lib import maintain
 from ckan.logic import ValidationError, NotFound, get_action
 from ckan.logic.schema import default_create_package_schema
 from ckan.lib.navl.validators import ignore_missing, ignore, not_empty
-from ckan.lib.munge import munge_title_to_name, substitute_ascii_equivalents
+from ckan.lib.munge import munge_title_to_name, munge_tag
 
 from ckanext.harvest.model import HarvestObject, HarvestGatherError, \
                                     HarvestObjectError
@@ -23,16 +23,11 @@ from ckan.lib.helpers import json
 
 log = logging.getLogger(__name__)
 
-def munge_tag(tag):
-    '''Replaces/removes any characters that are not in the standard CKAN tag
-    schema.'''
-    tag = substitute_ascii_equivalents(tag)
-    tag = tag.lower().strip()
-    return re.sub(r'[^a-zA-Z0-9 -]', '', tag).replace(' ', '-')
 
 def munge_tags(package_dict):
     tags = package_dict.get('tags', [])
-    tags = [munge_tag(t['name']) for t in tags]
+    tags = [munge_tag(t['name']) for t in tags if t]
+    tags = [t for t in tags if t != '__']  # i.e. just padding
     tags = remove_duplicates_in_a_list(tags)
     package_dict['tags'] = [dict(name=name) for name in tags]
 
@@ -46,24 +41,31 @@ def remove_duplicates_in_a_list(list_):
 class HarvesterBase(SingletonPlugin):
     '''
     Generic class for harvesters, providing them with a common import_stage and
-    various helper functions.
+    various helper functions. A harvester doesn't have to derive from this - it
+    can just implements(IHarvester) itself - however this base class avoids
+    lots of work dealing with HarvestObjects.
     '''
     implements(IHarvester)
 
     config = None
 
+    munge_tags = munge_tags
+
     @staticmethod
-    def _gen_new_name(title):
+    def munge_title_to_name(title):
         '''
-        Creates a URL friendly name from a title
+        Creates a URL friendly name from a title. Compared to the ckan method
+        munge_title_to_name, for spaces this version uses dashes rather than
+        underscores.
         '''
         name = munge_title_to_name(title).replace('_', '-')
         while '--' in name:
             name = name.replace('--', '-')
         return name
+    _gen_new_name = munge_title_to_name
 
     @staticmethod
-    def _check_name(name):
+    def check_name(name):
         '''
         Checks if a package name already exists in the database, and adds
         a counter at the end if it does exist.
@@ -80,9 +82,10 @@ class HarvesterBase(SingletonPlugin):
                     return name+str(counter)
                 counter = counter + 1
             return None
+    _check_name = check_name  # for backwards compatibility
 
     @staticmethod
-    def _save_gather_error(message, job):
+    def save_gather_error(message, job):
         '''
         Helper function to create an error during the gather stage.
         '''
@@ -94,9 +97,10 @@ class HarvesterBase(SingletonPlugin):
             err.save()
         finally:
             log.error(message)
+    _save_gather_error = save_gather_error  # for backwards compatibility
 
     @staticmethod
-    def _save_object_error(message, obj, stage=u'Fetch', line=None):
+    def save_object_error(message, obj, stage=u'Fetch', line=None):
         '''
         Helper function to create an error during the fetch or import stage.
         '''
@@ -112,8 +116,9 @@ class HarvesterBase(SingletonPlugin):
         finally:
             log_message = '{0}, line {1}'.format(message,line) if line else message
             log.debug(log_message)
+    _save_object_error = save_object_error  # for backwards compatibility
 
-    def _create_harvest_objects(self, remote_ids, harvest_job):
+    def create_harvest_objects(self, remote_ids, harvest_job):
         '''
         Given a list of remote ids and a Harvest Job, create as many Harvest Objects and
         return a list of their ids to be passed to the fetch stage.
@@ -133,17 +138,17 @@ class HarvesterBase(SingletonPlugin):
                self._save_gather_error('No remote datasets could be identified', harvest_job)
         except Exception, e:
             self._save_gather_error('%r' % e.message, harvest_job)
+    _create_harvest_objects = create_harvest_objects  # for backwards compat
 
-    # TODO: Move this to the model
+    @maintain.deprecated('Use the harvest_object.get_extra method instead.')
     def _get_object_extra(self, harvest_object, key):
         '''
+        Deprecated!
+
         Helper function for retrieving the value from a harvest object extra,
         given the key
         '''
-        for extra in harvest_object.extras:
-            if extra.key == key:
-                return extra.value
-        return None
+        return harvest_object.get_extra(key)
 
     @maintain.deprecated('HarvesterBase._create_or_update_package() is '
             'deprecated and will be removed in a future version of '
@@ -248,7 +253,7 @@ class HarvesterBase(SingletonPlugin):
                 context.pop('__auth_audit', None)
 
                 # Set name if not already there
-                package_dict.setdefault('name', self._gen_new_name(package_dict['title']))
+                package_dict.setdefault('name', self.munge_title_to_name(package_dict['title']))
 
                 log.info('Package with GUID %s does not exist, let\'s create it' % harvest_object.guid)
                 harvest_object.current = True
@@ -305,7 +310,7 @@ class HarvesterBase(SingletonPlugin):
 
         source_config = json.loads(harvest_object.source.config or '{}')
 
-        status = self._get_object_extra(harvest_object, 'status')
+        status = harvest_object.get_extra('status')
 
         # Get the last harvested object (if any)
         previous_object = Session.query(HarvestObject) \

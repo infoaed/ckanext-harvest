@@ -159,6 +159,18 @@ class HarvestObject(HarvestDomainObject):
     def __str__(self):
         return str(self.__repr__())
 
+    def get_extra(self, key, default=None):
+        '''
+        Helper function for retrieving the value from a harvest object extra,
+        given the key. (Since harvest_object.extras is mapped as a list, not a
+        dict.)
+        '''
+        for extra in self.extras:
+            if extra.key == key:
+                return extra.value
+        return default
+
+
 class HarvestObjectExtra(HarvestDomainObject):
     '''Extra key value data for Harvest objects'''
 
