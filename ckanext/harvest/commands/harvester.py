@@ -56,7 +56,7 @@ class Harvester(CkanCommand):
         - create new harvest jobs for all active sources.
 
       harvester job-run {source-id}
-        - creates a new harvest job and runs it
+        - does a complete harvest synchronously - create job, run, gather & fetch.
 
     The commands should be run from the ckanext-harvest directory and expect
     a development.ini file to be present. Most of the time you will
@@ -240,6 +240,8 @@ class Harvester(CkanCommand):
         jobs = get_action('harvest_job_list')(context,{'status':u'New'})
         self.print_there_are('harvest jobs', jobs, condition=u'New')
 
+        return job
+
     def list_harvest_jobs(self):
         context = {'model': model, 'user': self.admin_user['name'], 'session':model.Session}
         jobs = get_action('harvest_job_list')(context,{})
@@ -250,8 +252,9 @@ class Harvester(CkanCommand):
     def run_harvester(self):
         context = {'model': model, 'user': self.admin_user['name'], 'session':model.Session}
         jobs = get_action('harvest_jobs_run')(context,{})
-
+    
         #print 'Sent %s jobs to the gather queue' % len(jobs)
+        return jobs
 
     def import_stage(self):
         id_ = None
@@ -290,8 +293,57 @@ class Harvester(CkanCommand):
         print 'Created %s new harvest jobs' % len(jobs)
 
     def job_run(self):
-        self.create_harvest_job()
-        self.run_harvester()
+        import logging
+        from ckanext.harvest import queue
+        from ckanext.harvest.logic import HarvestJobExists
+        from ckanext.harvest.queue import get_gather_consumer, get_fetch_consumer
+
+        logging.getLogger('amqplib').setLevel(logging.INFO)
+
+        # ensure the queues are empty - needed for this command to run ok
+        gather_consumer = get_gather_consumer()
+        fetch_consumer = get_fetch_consumer()
+        assert not gather_consumer.fetch(), 'Gather queue is not empty!'
+        assert not fetch_consumer.fetch(), 'Fetch queue is not empty!'
+
+        # create harvest job
+        try:
+            job = self.create_harvest_job()
+        except HarvestJobExists:
+            # We want to ensure the job is run - this is a debug command.
+            # In which case, the job must be 'New'.
+            from ckan import model
+            source_id = unicode(self.args[1])
+            context = {'model': model, 'user': self.admin_user['name'],
+                       'session': model.Session}
+            jobs = get_action('harvest_job_list')(context,
+                                                  {'source_id': source_id})
+            job = jobs[0]  # latest one
+            if job['status'] != 'New':
+                # This should only happen when gather has gone wrong and is
+                # left in limbo, such as during dev work, which is why we
+                # access model in this code, rather than have a logic function
+                # for it.
+                logging.info('Restarting job')
+                from ckanext.harvest.model import HarvestJob
+                HarvestJob.get(job['id']).status = 'New'
+                model.repo.commit_and_remove()
+
+        jobs = self.run_harvester()
+        assert jobs
+
+        # gather
+        logging.getLogger('ckan.cli').info('Gather')
+        message = gather_consumer.fetch()
+        queue.gather_callback({'harvest_job_id': job['id']}, message)
+
+        # fetch
+        logging.getLogger('ckan.cli').info('Fetch')
+        while True:
+            message = fetch_consumer.fetch()
+            if not message:
+                break
+            queue.fetch_callback(message.payload, message)
 
     def print_harvest_sources(self, sources):
         if sources:
