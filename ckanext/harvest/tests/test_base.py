@@ -2,7 +2,7 @@
 Tests for ckanext/harvest/harvesters/base.py
 '''
 from nose.tools import assert_equal
-from ckanext.harvest.harvesters.base import munge_tags
+from ckanext.harvest.harvesters.base import munge_tags, HarvesterBase
 
 
 class TestMungeTags:
@@ -25,3 +25,9 @@ class TestMungeTags:
                         {'name': 'Geo'}]}
         munge_tags(pkg)
         assert_equal(pkg['tags'], [{'name': 'geo'}])
+
+
+def test_extras_from_dict():
+    res = HarvesterBase.extras_from_dict({'theme': 'environment', 'freq': 'daily'})
+    assert_equal(res, [{'key': 'theme', 'value': 'environment'},
+                       {'key': 'freq', 'value': 'daily'}])

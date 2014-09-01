@@ -42,11 +42,12 @@ class HarvesterBase(SingletonPlugin):
     '''
     Generic class for harvesters, providing them with a common import_stage and
     various helper functions. A harvester doesn't have to derive from this - it
-    can just implements(IHarvester) itself - however this base class avoids
-    lots of work dealing with HarvestObjects.
-    '''
-    implements(IHarvester)
+    should just have:
 
+        implements(IHarvester)
+
+    however this base class avoids lots of work dealing with HarvestObjects.
+    '''
     config = None
 
     munge_tags = munge_tags
@@ -83,6 +84,19 @@ class HarvesterBase(SingletonPlugin):
                 counter = counter + 1
             return None
     _check_name = check_name  # for backwards compatibility
+
+    @staticmethod
+    def extras_from_dict(extras_dict):
+        '''Takes extras in the form of a dict and returns it in the form of a
+        list of dicts.  A single extras dict is convenient to fill with values
+        in get_package_dict() but it needs to return the extras as a list of
+        dicts, to suit package_update.
+
+        e.g.
+        >>> HarvesterBase.extras_from_dict({'theme': 'environment', 'freq': 'daily'})
+        [{'key': 'theme', 'value': 'environment'}, {'key': 'freq', 'value': 'daily'}]
+        '''
+        return [{'key': key, 'value': value} for key, value in extras_dict.items()]
 
     @staticmethod
     def save_gather_error(message, job):
@@ -311,6 +325,10 @@ class HarvesterBase(SingletonPlugin):
         source_config = json.loads(harvest_object.source.config or '{}')
 
         status = harvest_object.get_extra('status')
+        if not status in ['new', 'changed', 'deleted']:
+            log.error('Status is not set correctly: %r', status)
+            self._save_object_error('System error')
+            return False
 
         # Get the last harvested object (if any)
         previous_object = Session.query(HarvestObject) \
@@ -338,7 +356,7 @@ class HarvesterBase(SingletonPlugin):
         # Set defaults for the package_dict, mainly from the source_config
         package_dict_defaults = PackageDictDefaults()
         package_dict_defaults['id'] = harvest_object.package_id or unicode(uuid.uuid4())
-        existing_dataset = model.Package.get(harvest_object.source.id)
+        existing_dataset = model.Package.get(harvest_object.package_id)
         if existing_dataset:
             package_dict_defaults['name'] = existing_dataset.name
         if source_config.get('remote_orgs') not in ('only_local', 'create'):
@@ -369,7 +387,8 @@ class HarvesterBase(SingletonPlugin):
         try:
             package_dict = self.get_package_dict(harvest_object,
                                                  package_dict_defaults,
-                                                 source_config)
+                                                 source_config,
+                                                 existing_dataset)
         except Exception, e:
             log.exception('Harvest error in get_package_dict %r', harvest_object)
             self._save_object_error('System error', harvest_object, 'Import')
@@ -409,8 +428,9 @@ class HarvesterBase(SingletonPlugin):
             # Defer constraints and flush so the dataset can be indexed with
             # the harvest object id (on the after_show hook from the harvester
             # plugin)
-            model.Session.execute('SET CONSTRAINTS harvest_object_package_id_fkey DEFERRED')
-            model.Session.flush()
+            if model.engine_is_pg():
+                model.Session.execute('SET CONSTRAINTS harvest_object_package_id_fkey DEFERRED')
+                model.Session.flush()
 
             if source_config.get('private_datasets', True):
                 package_dict['private'] = True
@@ -439,7 +459,7 @@ class HarvesterBase(SingletonPlugin):
         return True
 
     def get_package_dict(self, harvest_object, package_dict_defaults,
-                         source_config):
+                         source_config, existing_dataset):
         '''
         Constructs a package_dict suitable to be passed to package_create or
         package_update. See documentation on
@@ -452,6 +472,9 @@ class HarvesterBase(SingletonPlugin):
         * errors - call self._save_object_error() and return False
         * default values for name, owner_org, tags etc can be merged in using:
             package_dict = package_dict_defaults.merge(package_dict_harvested)
+            (NB default extras should be a dict, not a list of dicts)
+        * extras should be converted from a dict to a list of dicts before
+          returning - use extras_from_dict()
 
         If a dict is not returned by this function, the import stage will be
         cancelled.
@@ -463,6 +486,9 @@ class HarvesterBase(SingletonPlugin):
         :type package_dict_defaults: dict
         :param source_config: The config of the harvest source
         :type source_config: dict
+        :param source_config: The dataset as it was harvested last time. Needed
+          to set resource IDs the same as with existing resources.
+        :type existing_dataset: Package
 
         :returns: A dataset dictionary (package_dict)
         :rtype: dict
