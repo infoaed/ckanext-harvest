@@ -321,6 +321,8 @@ class CKANHarvester(HarvesterBase):
             package_dict['extras'].update(package_dict_defaults['extras'])
         source_config['clean_tags'] = True
 
+        package_dict.setdefault('name', self._gen_new_name(package_dict['title']))
+
         package_dict['name'] = self._check_name(package_dict['name'])
 
         if package_dict.get('type') == 'harvest':
