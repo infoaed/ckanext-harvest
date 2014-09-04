@@ -312,6 +312,8 @@ class CKANHarvester(HarvesterBase):
             package_dict['extras'].update(package_dict_defaults['extras'])
         source_config['clean_tags'] = True
 
+        package_dict['name'] = self._check_name(package_dict['name'])
+
         if package_dict.get('type') == 'harvest':
             log.debug('Remote dataset is a harvest source, ignoring...')
             return
