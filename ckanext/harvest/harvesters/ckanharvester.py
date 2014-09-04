@@ -230,16 +230,10 @@ class CKANHarvester(HarvesterBase):
         self._set_config(harvest_object.job.source.config)
 
         # Get source URL
-        url = harvest_object.source.url.rstrip('/')
-        url = url + self._get_rest_api_offset() + '/package/' + harvest_object.guid
+        base_url = harvest_object.source.url.rstrip('/')
+        url, content = self._get_package(base_url, harvest_object)
 
-        # Get contents
-        try:
-            content = self._get_content(url)
-        except Exception, e:
-            self.save_object_error(
-                'Unable to get content for package: %s: %r' % (url, e),
-                harvest_object)
+        if content is None:
             return None
 
         # Save the fetched contents in the HarvestObject
@@ -300,6 +294,18 @@ class CKANHarvester(HarvesterBase):
         harvest_object.save()
 
         return True
+
+    def _get_package(self, base_url, harvest_object):
+        url = base_url + self._get_rest_api_offset() + '/package/' + harvest_object.guid
+
+        # Get contents
+        try:
+            return url, self._get_content(url)
+        except Exception, e:
+            self._save_object_error(
+                'Unable to get content for package: %s: %r' % (url, e),
+                harvest_object)
+            return None, None
 
     def get_package_dict(self, harvest_object, package_dict_defaults,
                          source_config, existing_dataset):
