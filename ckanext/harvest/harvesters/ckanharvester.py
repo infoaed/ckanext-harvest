@@ -191,16 +191,7 @@ class CKANHarvester(HarvesterBase):
         # It wasn't possible to get just the latest changed datasets, so simply
         # get all of them.
         if get_all_packages:
-            # Request all remote packages
-            url = base_rest_url + '/package'
-            try:
-                content = self._get_content(url)
-            except Exception, e:
-                self.save_gather_error('Unable to get content for URL: %s: %s'
-                                        % (url, e), harvest_job)
-                return None
-
-            package_ids = json.loads(content)
+            package_ids = self._get_all_packages(base_rest_url, harvest_job)
 
         try:
             object_ids = []
@@ -220,6 +211,18 @@ class CKANHarvester(HarvesterBase):
 
         except Exception, e:
             self.save_gather_error('%r' % e.message, harvest_job)
+
+    def _get_all_packages(self, base_rest_url, harvest_job):
+        # Request all remote packages
+        url = base_rest_url + '/package'
+        try:
+            content = self._get_content(url)
+        except Exception, e:
+            self._save_gather_error('Unable to get content for URL: %s: %s'
+                                    % (url, e), harvest_job)
+            return None
+
+        return json.loads(content)
 
     def fetch_stage(self, harvest_object):
         log.debug('In CKANHarvester fetch_stage')
