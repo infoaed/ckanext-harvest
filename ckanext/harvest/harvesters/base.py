@@ -32,8 +32,8 @@ def munge_tags(package_dict):
 
 
 def remove_duplicates_in_a_list(list_):
-    seen = set()
-    seen_add = seen.add
+    seen = []
+    seen_add = seen.append
     return [x for x in list_ if not (x in seen or seen_add(x))]
 
 
