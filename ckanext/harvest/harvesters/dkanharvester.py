@@ -36,7 +36,6 @@ class DKANHarvester(CKANHarvester):
         try:
             content = json.loads(self._get_content(url))
             package = content['result'][0]
-            package['tags'] = [tag['name'] for tag in package['tags']] # Kludge
             if 'extras' not in package:
                 package['extras'] = {}
             return url, json.dumps(package)

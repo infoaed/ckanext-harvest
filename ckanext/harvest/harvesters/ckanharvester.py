@@ -423,7 +423,7 @@ class CKANHarvester(HarvesterBase):
         package_dict['extras'] = [dict(key=key, value=package_dict['extras'][key])
                                     for key in package_dict['extras']]
 
-        self.fix_tags(package_dict)
+        self._fix_tags(package_dict)
 
         # Clear remote url_type for resources (eg datastore, upload) as we
         # are only creating normal resources with links to the remote ones
