@@ -1,3 +1,4 @@
+from ckanharvester import CKANHarvester
 
 class DKANHarvester(CKANHarvester):
     def info(self):
