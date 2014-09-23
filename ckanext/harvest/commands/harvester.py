@@ -252,13 +252,13 @@ class Harvester(CkanCommand):
     def run_harvester(self):
         context = {'model': model, 'user': self.admin_user['name'], 'session':model.Session}
         jobs = get_action('harvest_jobs_run')(context,{})
-    
+
         #print 'Sent %s jobs to the gather queue' % len(jobs)
         return jobs
 
     def import_stage(self):
         id_ = None
-        id_types = ('source_id', 'object_id', 'guid')
+        id_types = ('source_id', 'harvest_object_id', 'guid')
         if len(self.args) == 1:
             # i.e all sources/objects
             pass
@@ -273,7 +273,7 @@ class Harvester(CkanCommand):
                 sys.exit(1)
             if id_type == 'source_id':
                 id_ = unicode(self.args[2])
-            elif id_type == 'object_id':
+            elif id_type == 'harvest_object_id':
                 id_ = unicode(self.args[2])
             elif id_type == 'guid':
                 id_ = unicode(self.args[2])
@@ -294,11 +294,14 @@ class Harvester(CkanCommand):
 
     def job_run(self):
         import logging
+        from ckan import model
         from ckanext.harvest import queue
         from ckanext.harvest.logic import HarvestJobExists
         from ckanext.harvest.queue import get_gather_consumer, get_fetch_consumer
 
         logging.getLogger('amqplib').setLevel(logging.INFO)
+
+        source_id = unicode(self.args[1])
 
         # ensure the queues are empty - needed for this command to run ok
         gather_consumer = get_gather_consumer()
@@ -307,17 +310,18 @@ class Harvester(CkanCommand):
         assert not fetch_consumer.fetch(), 'Fetch queue is not empty!'
 
         # create harvest job
+        context = {'model': model, 'session': model.Session,
+                   'user': self.admin_user['name']}
         try:
-            job = self.create_harvest_job()
+            job = get_action('harvest_job_create')(context, {'source_id': source_id})
         except HarvestJobExists:
             # We want to ensure the job is run - this is a debug command.
             # In which case, the job must be 'New'.
             from ckan import model
-            source_id = unicode(self.args[1])
             context = {'model': model, 'user': self.admin_user['name'],
                        'session': model.Session}
             jobs = get_action('harvest_job_list')(context,
-                                                  {'source_id': source_id})
+                                                {'source_id': source_id})
             job = jobs[0]  # latest one
             if job['status'] != 'New':
                 # This should only happen when gather has gone wrong and is
@@ -329,7 +333,8 @@ class Harvester(CkanCommand):
                 HarvestJob.get(job['id']).status = 'New'
                 model.repo.commit_and_remove()
 
-        jobs = self.run_harvester()
+        # run - sends the job to the gather queue
+        jobs = get_action('harvest_jobs_run')(context, {'source_id': source_id})
         assert jobs
 
         # gather
@@ -344,6 +349,9 @@ class Harvester(CkanCommand):
             if not message:
                 break
             queue.fetch_callback(message.payload, message)
+
+        # run - mark the job as finished
+        jobs = get_action('harvest_jobs_run')(context, {'source_id': source_id})
 
     def print_harvest_sources(self, sources):
         if sources:
