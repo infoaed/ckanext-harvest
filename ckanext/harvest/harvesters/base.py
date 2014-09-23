@@ -369,6 +369,12 @@ class HarvesterBase(SingletonPlugin):
             package_dict_defaults['owner_org'] = existing_dataset.owner_org
         package_dict_defaults['tags'] = source_config.get('default_tags', [])
         package_dict_defaults['groups'] = source_config.get('default_groups', [])
+        package_dict_defaults['extras'] = {
+            'import_source': 'harvest',  # to identify all harvested datasets
+            'harvest_object_id': harvest_object.id,
+            'guid': harvest_object.guid,
+            'metadata-date': harvest_object.metadata_modified_date.strftime('%Y-%m-%d'),
+            }
         default_extras = source_config.get('default_extras', {})
         if default_extras:
             env = dict(harvest_source_id=harvest_object.job.source.id,
@@ -377,7 +383,6 @@ class HarvesterBase(SingletonPlugin):
                        harvest_job_id=harvest_object.job.id,
                        harvest_object_id=harvest_object.id,
                        dataset_id=package_dict_defaults['id'])
-            package_dict_defaults['extras'] = {}
             for key, value in default_extras.iteritems():
                 # Look for replacement strings
                 if isinstance(value, basestring):
