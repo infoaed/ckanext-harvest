@@ -3,7 +3,6 @@ import re
 import uuid
 
 from sqlalchemy.sql import update, bindparam
-from sqlalchemy.exc import InvalidRequestError
 
 from ckan import logic
 from ckan import model
@@ -98,39 +97,10 @@ class HarvesterBase(SingletonPlugin):
         '''
         return [{'key': key, 'value': value} for key, value in extras_dict.items()]
 
-    @staticmethod
-    def save_gather_error(message, job):
-        '''
-        Helper function to create an error during the gather stage.
-        '''
-        err = HarvestGatherError(message=message, job=job)
-        try:
-            err.save()
-        except InvalidRequestError:
-            Session.rollback()
-            err.save()
-        finally:
-            log.error(message)
-    _save_gather_error = save_gather_error  # for backwards compatibility
-
-    @staticmethod
-    def save_object_error(message, obj, stage=u'Fetch', line=None):
-        '''
-        Helper function to create an error during the fetch or import stage.
-        '''
-        err = HarvestObjectError(message=message,
-                                 object=obj,
-                                 stage=stage,
-                                 line=line)
-        try:
-            err.save()
-        except InvalidRequestError, e:
-            Session.rollback()
-            err.save()
-        finally:
-            log_message = '{0}, line {1}'.format(message,line) if line else message
-            log.debug(log_message)
-    _save_object_error = save_object_error  # for backwards compatibility
+    save_gather_error = HarvestGatherError.create
+    _save_gather_error = HarvestGatherError.create  # for backwards compatibility
+    save_object_error = HarvestObjectError.create
+    _save_object_error = HarvestObjectError.create  # for backwards compatibility
 
     def create_harvest_objects(self, remote_ids, harvest_job):
         '''

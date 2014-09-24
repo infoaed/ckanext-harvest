@@ -9,14 +9,16 @@ from carrot.messaging import Consumer
 from ckan.lib.base import config
 from ckan.plugins import PluginImplementations
 
-from ckanext.harvest.model import HarvestJob, HarvestObject,HarvestGatherError
+from ckanext.harvest.model import (HarvestJob, HarvestObject,
+                                   HarvestGatherError,
+                                   HarvestObjectError)
 from ckanext.harvest.interfaces import IHarvester
 from ckan import model
 
 log = logging.getLogger(__name__)
 assert not log.disabled
 
-__all__ = ['get_gather_publisher', 'get_gather_consumer', \
+__all__ = ['get_gather_publisher', 'get_gather_consumer',
            'get_fetch_publisher', 'get_fetch_consumer']
 
 PORT = 5672
@@ -99,9 +101,16 @@ def gather_callback(message_data,message):
                     # Get a list of harvest object ids from the plugin
                     job.gather_started = datetime.datetime.now()
                     job.save()
-                    harvest_object_ids = harvester.gather_stage(job)
-                    job.gather_finished = datetime.datetime.now()
-                    job.save()
+                    try:
+                        harvest_object_ids = harvester.gather_stage(job)
+                    except (Exception, KeyboardInterrupt):
+                        # exception means we do not know the object ids so we
+                        # can't send them to the fetch queue, however keep them
+                        # for the user to see what was gathered
+                        raise
+                    finally:
+                        job.gather_finished = datetime.datetime.now()
+                        job.save()
                     log.debug('Received from plugin''s gather_stage: %r' % harvest_object_ids)
                     if harvest_object_ids and len(harvest_object_ids) > 0:
                         for id in harvest_object_ids:
@@ -111,8 +120,7 @@ def gather_callback(message_data,message):
 
             if not harvester_found:
                 msg = 'No harvester could be found for source type %s' % job.source.type
-                err = HarvestGatherError(message=msg,job=job)
-                err.save()
+                HarvestGatherError.create(message=msg, job=job)
                 log.error(msg)
 
         finally:
@@ -165,17 +173,38 @@ def fetch_callback(message_data, message):
                 obj.fetch_started = datetime.datetime.utcnow()
                 obj.state = "FETCH"
                 obj.save()
-                success_fetch = harvester.fetch_stage(obj)
-                obj.fetch_finished = datetime.datetime.now()
-                obj.save()
+                try:
+                    success_fetch = harvester.fetch_stage(obj)
+                except Exception, e:
+                    msg = 'System error (%s)' % e
+                    HarvestObjectError.create(
+                        message=msg, object=obj, stage='Fetch', line=None)
+                    log.error('Fetch exception %s obj=%s guid=%s source=%s',
+                              e, obj.id, obj.guid, obj.source.id)
+                    log.exception(e)
+                    success_fetch = False
+                finally:
+                    obj.fetch_finished = datetime.datetime.now()
+                    obj.save()
                 #TODO: retry times?
                 if success_fetch:
                     # If no errors where found, call the import method
                     obj.import_started = datetime.datetime.utcnow()
                     obj.state = "IMPORT"
                     obj.save()
-                    success_import = harvester.import_stage(obj)
-                    obj.import_finished = datetime.datetime.utcnow()
+                    try:
+                        success_import = harvester.import_stage(obj)
+                    except Exception, e:
+                        msg = 'System error (%s)' % e
+                        HarvestObjectError.create(
+                            message=msg, object=obj, stage='Import', line=None)
+                        log.error('Import exception: %s obj=%s guid=%s source=%s',
+                                  e, obj.id, obj.guid, obj.source.id)
+                        log.exception(e)
+                        success_import = False
+                    finally:
+                        obj.import_finished = datetime.datetime.utcnow()
+                        obj.save()
                     if success_import:
                         obj.state = "COMPLETE"
                     else:
