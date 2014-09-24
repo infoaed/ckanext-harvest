@@ -315,8 +315,8 @@ class Harvester(CkanCommand):
         try:
             job = get_action('harvest_job_create')(context, {'source_id': source_id})
         except HarvestJobExists:
-            # We want to ensure the job is run - this is a debug command.
-            # In which case, the job must be 'New'.
+            # Job has been created already - we can probably use it.
+            # If job status is 'New' then it is ready to run.
             from ckan import model
             context = {'model': model, 'user': self.admin_user['name'],
                        'session': model.Session}
@@ -324,13 +324,21 @@ class Harvester(CkanCommand):
                                                 {'source_id': source_id})
             job = jobs[0]  # latest one
             if job['status'] != 'New':
-                # This should only happen when gather has gone wrong and is
-                # left in limbo, such as during dev work, which is why we
-                # access model in this code, rather than have a logic function
-                # for it.
+                # Non-new status happens when the job is in progress or has
+                # gone wrong and is left in limbo, such as during dev work,
+                # which is why we access model in this code, rather than have a
+                # logic function for it.
+                resp = raw_input('The job for this source is in progress or in limbo. Job:%s start:%s status:%s. Reset this job? (y/n)' % (job['id'], job['created'], job['status']))
+                if not resp.lower().startswith('y'):
+                    sys.exit(1)
                 logging.info('Restarting job')
                 from ckanext.harvest.model import HarvestJob
-                HarvestJob.get(job['id']).status = 'New'
+                job_obj = HarvestJob.get(job['id'])
+                job_obj.status = 'New'
+                for harvest_object in job_obj.objects:
+                    if harvest_object.state not in ('ERROR', 'COMPLETE'):
+                        logging.info('Changing object state %s->ERROR obj-id: %s',
+                                     harvest_object.state, job_obj.id)
                 model.repo.commit_and_remove()
 
         # run - sends the job to the gather queue
