@@ -331,14 +331,16 @@ class Harvester(CkanCommand):
                 resp = raw_input('The job for this source is in progress or in limbo. Job:%s start:%s status:%s. Reset this job? (y/n)' % (job['id'], job['created'], job['status']))
                 if not resp.lower().startswith('y'):
                     sys.exit(1)
-                logging.info('Restarting job')
+                print 'Restarting job'
                 from ckanext.harvest.model import HarvestJob
                 job_obj = HarvestJob.get(job['id'])
                 job_obj.status = 'New'
+                import pdb; pdb.set_trace()
                 for harvest_object in job_obj.objects:
                     if harvest_object.state not in ('ERROR', 'COMPLETE'):
-                        logging.info('Changing object state %s->ERROR obj-id: %s',
-                                     harvest_object.state, job_obj.id)
+                        print 'Changing object state %s->ERROR obj-id: %s' % \
+                            (harvest_object.state, job_obj.id)
+                        harvest_object.state = 'ERROR'
                 model.repo.commit_and_remove()
 
         # run - sends the job to the gather queue
