@@ -1,13 +1,16 @@
 import urllib2
+import dateutil.parser
 
 from ckan.lib.base import c
 from ckan import model
 from ckan.model import Session, Package
 from ckan.logic import ValidationError, NotFound, get_action
 from ckan.lib.helpers import json
+from ckan.plugins.core import implements
 
 from ckanext.harvest.model import HarvestJob, HarvestObject, \
                                   HarvestObjectError, HarvestObjectExtra
+from ckanext.harvest.interfaces import IHarvester
 
 import logging
 log = logging.getLogger(__name__)
@@ -19,6 +22,8 @@ class CKANHarvester(HarvesterBase):
     '''
     A Harvester for CKAN instances
     '''
+    implements(IHarvester)
+
     config = None
 
     api_version = 2
@@ -160,7 +165,7 @@ class CKANHarvester(HarvesterBase):
                             try:
                                 content = self._get_content(url)
                             except Exception, e:
-                                self._save_gather_error(
+                                self.save_gather_error(
                                     'Unable to get content for URL: %s: %s' %
                                     (url, e), harvest_job)
                                 continue
@@ -178,7 +183,7 @@ class CKANHarvester(HarvesterBase):
                         log.info('CKAN instance %s does not suport revision filtering' % base_url)
                         get_all_packages = True
                     else:
-                        self._save_gather_error(
+                        self.save_gather_error(
                             'Unable to get content for URL: %s: %s' %
                             (url, e), harvest_job)
                         return None
@@ -191,7 +196,7 @@ class CKANHarvester(HarvesterBase):
             try:
                 content = self._get_content(url)
             except Exception, e:
-                self._save_gather_error('Unable to get content for URL: %s: %s'
+                self.save_gather_error('Unable to get content for URL: %s: %s'
                                         % (url, e), harvest_job)
                 return None
 
@@ -200,7 +205,7 @@ class CKANHarvester(HarvesterBase):
         try:
             object_ids = []
             if not package_ids:
-                self._save_gather_error('No packages received for URL: %s' %
+                self.save_gather_error('No packages received for URL: %s' %
                                         url, harvest_job)
                 return None
 
@@ -214,7 +219,7 @@ class CKANHarvester(HarvesterBase):
             return object_ids
 
         except Exception, e:
-            self._save_gather_error('%r' % e.message, harvest_job)
+            self.save_gather_error('%r' % e.message, harvest_job)
 
     def fetch_stage(self, harvest_object):
         log.debug('In CKANHarvester fetch_stage')
@@ -229,7 +234,7 @@ class CKANHarvester(HarvesterBase):
         try:
             content = self._get_content(url)
         except Exception, e:
-            self._save_object_error(
+            self.save_object_error(
                 'Unable to get content for package: %s: %r' % (url, e),
                 harvest_object)
             return None
@@ -242,33 +247,42 @@ class CKANHarvester(HarvesterBase):
         try:
             dataset = json.loads(content)
         except ValueError, e:
-            self._save_object_error(
+            self.save_object_error(
                 'CKAN content could not be deserialized: %s: %r' % (url, e),
                 harvest_object)
             return None
         modified = dataset.get('metadata_modified')
         # e.g. "2014-05-10T02:22:05.483412"
         if not modified:
-            self._save_object_error(
+            self.save_object_error(
                 'CKAN content did not have metadata_modified: %s' % url,
                 harvest_object)
             return None
+        try:
+            modified = dateutil.parser.parse(modified)
+        except ValueError:
+            self.save_object_error(
+                'CKAN modified date did not parse: %s url: %s' % (modified, url),
+                harvest_object)
+            return None
+
 
         # Set the HarvestObjectExtra.status
         previous_obj = model.Session.query(HarvestObject) \
                             .filter_by(guid=harvest_object.guid) \
                             .filter_by(current=True) \
                             .first()
-        if previous_obj:
+        if previous_obj and previous_obj.modified:
             # See if the object has changed
-            previous_modified = self._get_object_extra(harvest_object,
-                                                       'modified')
+            previous_modified = harvest_object.metadata_modified_date or \
+                self._get_object_extra(harvest_object, 'modified')
+                # look in the extra for backward compatibility only
             if previous_modified == modified:
                 log.info('Package with GUID %s not updated, skipping...' %
                          harvest_object.guid)
                 return None
             if previous_modified > modified:
-                self._save_object_error('CKAN modification date is earlier than when it was last harvested! %s Last harvest: %s This harvest: %s' %
+                self.save_object_error('CKAN modification date is earlier than when it was last harvested! %s Last harvest: %s This harvest: %s' %
                                         (url, previous_modified, modified),
                                         harvest_object)
             log.info('Package with GUID %s exists and needs to be updated' %
@@ -277,19 +291,19 @@ class CKANHarvester(HarvesterBase):
         else:
             status = 'new'
 
+        harvest_object.metadata_modified_date = modified
         harvest_object.extras.append(HarvestObjectExtra(key='status', value=status))
-        harvest_object.extras.append(HarvestObjectExtra(key='modified', value=modified))
         harvest_object.extras.append(HarvestObjectExtra(key='url', value=url))
         harvest_object.save()
 
         return True
 
     def get_package_dict(self, harvest_object, package_dict_defaults,
-                         source_config):
+                         source_config, existing_dataset):
         try:
             package_dict_harvested = json.loads(harvest_object.content)
         except ValueError, e:
-            self._save_object_error('CKAN content could not be deserialized: %s: %r' % \
+            self.save_object_error('CKAN content could not be deserialized: %s: %r' % \
                                     (harvest_object.url, e), harvest_object)
             return None
         package_dict = package_dict_defaults.merge(package_dict_harvested)
