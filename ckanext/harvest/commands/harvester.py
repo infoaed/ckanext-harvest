@@ -328,19 +328,15 @@ class Harvester(CkanCommand):
                 # gone wrong and is left in limbo, such as during dev work,
                 # which is why we access model in this code, rather than have a
                 # logic function for it.
-                resp = raw_input('The job for this source is in progress or in limbo. Job:%s start:%s status:%s. Reset this job? (y/n)' % (job['id'], job['created'], job['status']))
+                resp = raw_input('The job for this source is in progress or in limbo. Job:%s start:%s status:%s. Reset this job and delete its old objects? (y/n)' % (job['id'], job['created'], job['status']))
                 if not resp.lower().startswith('y'):
                     sys.exit(1)
                 print 'Restarting job'
                 from ckanext.harvest.model import HarvestJob
                 job_obj = HarvestJob.get(job['id'])
                 job_obj.status = 'New'
-                import pdb; pdb.set_trace()
                 for harvest_object in job_obj.objects:
-                    if harvest_object.state not in ('ERROR', 'COMPLETE'):
-                        print 'Changing object state %s->ERROR obj-id: %s' % \
-                            (harvest_object.state, job_obj.id)
-                        harvest_object.state = 'ERROR'
+                    harvest_object.delete()
                 model.repo.commit_and_remove()
 
         # run - sends the job to the gather queue
