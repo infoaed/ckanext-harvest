@@ -8,6 +8,7 @@ from sqlalchemy import Table
 from sqlalchemy import Column
 from sqlalchemy import ForeignKey
 from sqlalchemy import types
+from sqlalchemy import func
 from sqlalchemy.engine.reflection import Inspector
 from sqlalchemy.orm import backref, relation
 from sqlalchemy.exc import InvalidRequestError
@@ -146,6 +147,19 @@ class HarvestJob(HarvestDomainObject):
                (self.id, self.source_id, self.status, self.created.strftime('%Y-%m-%d %H:%M'))
     def __str__(self):
         return str(self.__repr__())
+
+    def get_object_report_statuses(self):
+        '''Returns the counts of 'report_status' values for this job's objects.
+        e.g. returns:
+        {'errored': 4, 'deleted': 2, 'unchanged': 5, 'updated': 3, 'added': 6}
+        '''
+        stats = model.Session.query(
+            HarvestObject.report_status,
+            func.count(HarvestObject.id).label('total_objects'))\
+                .filter_by(harvest_job_id=self.id)\
+                .group_by(HarvestObject.report_status).all()
+        return dict((status, count) for status, count in stats)
+
 
 class HarvestObject(HarvestDomainObject):
     '''A Harvest Object is created every time an element is fetched from a

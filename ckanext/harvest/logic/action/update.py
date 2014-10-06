@@ -2,7 +2,7 @@ import hashlib
 
 import logging
 import datetime
-from sqlalchemy import and_, or_
+from sqlalchemy import or_
 
 from ckan.plugins import PluginImplementations
 from ckan.logic import get_action
@@ -22,6 +22,7 @@ from ckanext.harvest.logic.dictization import harvest_source_dictize
 
 from ckanext.harvest.logic.action.create import _error_summary
 from ckanext.harvest.logic.action.get import harvest_source_show, harvest_job_list, _get_sources_for_user
+from ckanext.harvest import lib as harvest_lib
 
 
 log = logging.getLogger(__name__)
@@ -221,32 +222,7 @@ def harvest_jobs_run(context,data_dict):
     if len(jobs):
         for job in jobs:
             if job['gather_finished']:
-                objects = session.query(HarvestObject.id) \
-                          .filter(HarvestObject.harvest_job_id==job['id']) \
-                          .filter(and_((HarvestObject.state!=u'COMPLETE'),
-                                       (HarvestObject.state!=u'ERROR'))) \
-                          .order_by(HarvestObject.import_finished.desc())
-
-                if objects.count() == 0:
-                    log.debug('HarvestJob finished - %s', job['id'])
-                    job_obj = HarvestJob.get(job['id'])
-                    job_obj.status = u'Finished'
-
-                    last_object = session.query(HarvestObject) \
-                          .filter(HarvestObject.harvest_job_id==job['id']) \
-                          .filter(HarvestObject.import_finished!=None) \
-                          .order_by(HarvestObject.import_finished.desc()) \
-                          .first()
-                    if last_object:
-                        job_obj.finished = last_object.import_finished
-                    job_obj.save()
-                    # DGU Hack - we don't have harvest_sources in solr so it's commented out
-                    ## Reindex the harvest source dataset so it has the latest
-                    ## status
-                    #get_action('harvest_source_reindex')(context,
-                    #    {'id': job_obj.source.id})
-                else:
-                    log.debug('HarvestJob not yet finished - %s', job['id'])
+                harvest_lib.update_job_status(job, session)
 
     # resubmit old redis tasks
     resubmit_jobs()

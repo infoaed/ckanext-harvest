@@ -272,7 +272,7 @@ class CKANHarvester(HarvesterBase):
                             .filter_by(guid=harvest_object.guid) \
                             .filter_by(current=True) \
                             .first()
-        if previous_obj and previous_obj.modified:
+        if previous_obj:
             # See if the object has changed
             previous_modified = harvest_object.metadata_modified_date or \
                 self._get_object_extra(harvest_object, 'modified')

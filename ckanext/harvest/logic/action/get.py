@@ -2,7 +2,7 @@ import logging
 from sqlalchemy import or_
 from sqlalchemy import distinct
 
-import ckan.new_authz
+from ckan.common import OrderedDict
 from ckan.model import User
 import datetime
 
@@ -12,8 +12,8 @@ from ckanext.harvest.interfaces import IHarvester
 import ckan.plugins as p
 from ckan.logic import NotFound, check_access, side_effect_free
 
+from ckanext.harvest import lib as harvest_lib
 from ckanext.harvest import model as harvest_model
-
 from ckanext.harvest.model import (HarvestSource, HarvestJob, HarvestObject)
 from ckanext.harvest.logic.dictization import (harvest_source_dictize,
                                                harvest_job_dictize,
@@ -54,15 +54,17 @@ def harvest_source_show(context,data_dict):
     return data
 
 
-@side_effect_free
 def harvest_source_show_status(context, data_dict):
     '''
-    Returns a status report for a harvest source
+    Returns a status report for a harvest source.
 
     Given a particular source, returns a dictionary containing information
     about the source jobs, datasets created, errors, etc.
     Note that this information is already included on the output of
     harvest_source_show, under the 'status' field.
+
+    Side-effect - running jobs will be checked if they are still running and
+    flagged if they have now finished.
 
     :param id: the id or name of the harvest source
     :type id: string
@@ -70,8 +72,8 @@ def harvest_source_show_status(context, data_dict):
     :rtype: dictionary
     '''
 
+    session = context['session']
     p.toolkit.check_access('harvest_source_show_status', context, data_dict)
-
 
     model = context.get('model')
 
@@ -100,6 +102,8 @@ def harvest_source_show_status(context, data_dict):
     running_job = HarvestJob.filter(source=source,status=u'Running') \
                             .order_by(HarvestJob.created.desc()).first()
     if running_job:
+        # TODO running_job should really just return data, and leave the
+        # presentation to the template
         if running_job.gather_started:
             run_time = datetime.datetime.now() - running_job.gather_started
             minutes, seconds = divmod(run_time.seconds, 60)
@@ -110,8 +114,25 @@ def harvest_source_show_status(context, data_dict):
             out['running_job'] += ' - gathering records (%s so far)' % \
                                   len(running_job.objects)
         else:
-            out['running_job'] += ' - fetch and import of %s records' % \
-                                  len(running_job.objects)
+            job_dict = p.toolkit.get_action('harvest_job_show')(context, {'id': running_job.id})
+            object_stats = harvest_lib.update_job_status(job_dict, session)
+            if object_stats:
+                total_objects = sum(object_stats.values())
+                state_map = OrderedDict((
+                        ('WAITING', 'not yet processed'),
+                        ('FETCH', 'in the fetch stage'),
+                        ('IMPORT', 'in the import stage'),
+                        ('COMPLETE', 'completed ok'),
+                        ('ERROR', 'failed'),
+                        ))
+                object_stats_str = ''.join(
+                    ['<br/>%s %s' % (object_stats.get(state_key, '0'), state)
+                     for state_key, state in state_map.iteritems()]
+                    )
+                out['running_job'] += ' - fetch and import of %s records: %s' % \
+                                    (total_objects, object_stats_str)
+            else:
+                out['running_job'] += '(now complete)' # i.e. just now complete
 
     # Get next scheduled job
     next_job = HarvestJob.filter(source=source, status=u'New').first()

@@ -217,15 +217,18 @@ def fetch_callback(message_data, message):
                     return
                 if obj.state == 'ERROR':
                     obj.report_status = 'errored'
-                elif obj.current == False:
+                elif obj.get_extra('status') == 'deleted':
                     obj.report_status = 'deleted'
+                elif obj.current == False:
+                    # not sure why a harvest object was created...
+                    obj.report_status = 'unchanged'
                 elif len(model.Session.query(HarvestObject)
                     .filter_by(package_id = obj.package_id)
                     .limit(2)
                     .all()) == 2:
-                    obj.report_status = 'updated'
+                    obj.report_status = 'reimported'
                 else:
-                    obj.report_status = 'added'
+                    obj.report_status = 'new'
                 obj.save()
     finally:
         message.ack()

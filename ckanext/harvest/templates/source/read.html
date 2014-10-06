@@ -94,7 +94,7 @@
              <py:if test="c.source.status.running_job or c.source.status.last_job">
               <p py:if="c.source.status.running_job">
                 <strong>
-                  Harvesting in progress: ${c.source.status.running_job}<br/>
+                  Harvesting in progress: ${h.literal(c.source.status.running_job)}<br/>
                 </strong>
               </p>
               <p py:if="not c.source.status.running_job">
@@ -102,7 +102,21 @@
               </p>
               Date: ${c.source.status.last_job.created} <br/>
               <py:if test="c.source.status.last_job">
-                <a name="errors"/>Harvest Errors: ${c.source.status.last_job.stats.get('errored', 0)}<br/>
+                Harvest
+                <py:if test="not c.source.status.running_job">
+                  complete
+                </py:if>
+                - 
+                <py:if test="not c.source.status.last_job.stats.get('errored')">
+                  <a name="errors"/>no errors<br/>
+                </py:if>
+                <py:if test="c.source.status.last_job.stats.get('errored')">
+                  <a name="errors"/>Errors: ${c.source.status.last_job.stats.get('errored', 0)}
+                </py:if>
+                <py:if test="c.source.status.running_job">
+                  so far
+                </py:if>
+                <br/>
                 <py:choose>
                     <py:when test="len(c.source.status.last_job.gather_errors)>0">
                         <i>Gathering errors</i>
@@ -132,8 +146,15 @@
                     </py:when>
                 </py:choose>
                 Harvested records:
-                <py:for each="result in ['new', 'updated']">
+                <!-- NB this will all be zero if there are no HarvestObjects - i.e. if the harvester is designed to do everything in the gather stage. Or if the gather stage can see that none of the records have updated since the last harvest and therefore no objects needed. -->
+                <py:for each="result in ['added', 'reimported', 'errored']">
                   ${result}: ${c.source.status.last_job.stats.get(result, 0)}
+                </py:for>
+                <py:for each="result in ['deleted', 'unchanged']">
+                  <!--! 'unchanged' only used if the fetch checks if an update is necessary or not. Many harvesters may always update. So we only display these fields if there is a value. -->
+                  <py:if test="c.source.status.last_job.stats.get(result)">
+                    ${result}: ${c.source.status.last_job.stats.get(result, 0)}
+                  </py:if>
                 </py:for>
                 <br/>
               </py:if>
