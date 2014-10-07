@@ -102,6 +102,7 @@
               </p>
               Date: ${c.source.status.last_job.created} <br/>
               <py:if test="c.source.status.last_job">
+
                 Harvest
                 <py:if test="not c.source.status.running_job">
                   complete
@@ -116,6 +117,8 @@
                 <py:if test="c.source.status.running_job">
                   so far
                 </py:if>
+                <br/>
+
                 <py:choose>
                     <py:when test="len(c.source.status.last_job.gather_errors)>0">
                         <i>Gathering errors</i>
@@ -146,7 +149,7 @@
                 </py:choose>
                 Harvested records:
                 <!-- NB this will all be zero if there are no HarvestObjects - i.e. if the harvester is designed to do everything in the gather stage. Or if the gather stage can see that none of the records have updated since the last harvest and therefore no objects needed. -->
-                <py:for each="result in ['added', 'reimported', 'errored']">
+                <py:for each="result in ['new', 'reimported', 'errored']">
                   ${result}: ${c.source.status.last_job.stats.get(result, 0)}
                 </py:for>
                 <py:for each="result in ['deleted', 'unchanged']">
