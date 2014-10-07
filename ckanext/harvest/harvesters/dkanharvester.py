@@ -38,6 +38,8 @@ class DKANHarvester(CKANHarvester):
             package = content['result'][0]
             if 'extras' not in package:
                 package['extras'] = {}
+            for resource in package['resources']:
+                resource['description'] = resource['title']
             return url, json.dumps(package)
         except Exception, e:
             self._save_object_error(
