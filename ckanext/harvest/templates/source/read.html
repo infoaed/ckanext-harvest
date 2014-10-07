@@ -108,7 +108,7 @@
                 </py:if>
                 - 
                 <py:if test="not c.source.status.last_job.stats.get('errored')">
-                  <a name="errors"/>no errors<br/>
+                  <a name="errors"/>no errors
                 </py:if>
                 <py:if test="c.source.status.last_job.stats.get('errored')">
                   <a name="errors"/>Errors: ${c.source.status.last_job.stats.get('errored', 0)}
@@ -116,7 +116,6 @@
                 <py:if test="c.source.status.running_job">
                   so far
                 </py:if>
-                <br/>
                 <py:choose>
                     <py:when test="len(c.source.status.last_job.gather_errors)>0">
                         <i>Gathering errors</i>
