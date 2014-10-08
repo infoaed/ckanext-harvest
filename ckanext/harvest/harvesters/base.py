@@ -71,13 +71,13 @@ class HarvesterBase(SingletonPlugin):
         a counter at the end if it does exist.
         '''
         like_q = u'%s%%' % name
-        pkg_query = Session.query(Package).filter(Package.name.ilike(like_q)).limit(100)
+        pkg_query = Session.query(Package).filter(Package.name.ilike(like_q)).limit(1000)
         taken = [pkg.name for pkg in pkg_query]
         if name not in taken:
             return name
         else:
             counter = 1
-            while counter < 101:
+            while counter < 1001:
                 if name+str(counter) not in taken:
                     return name+str(counter)
                 counter = counter + 1
@@ -412,8 +412,8 @@ class HarvesterBase(SingletonPlugin):
 
             log.debug('package_create: %r', package_dict)
             try:
-                package_id = get_action('package_create')(context, package_dict)
-                log.info('Created new package %s with guid %s', package_id, harvest_object.guid)
+                package_dict_created = get_action('package_create')(context, package_dict)
+                log.info('Created new package name=%s id=%s guid=%s', package_dict.get('name'), package_dict_created['id'], harvest_object.guid)
             except ValidationError, e:
                 self._save_object_error('Validation Error: %s' % str(e.error_summary), harvest_object, 'Import')
                 return False
@@ -424,8 +424,8 @@ class HarvesterBase(SingletonPlugin):
             package_dict['id'] = harvest_object.package_id
             log.debug('package_update: %r', package_dict)
             try:
-                package_id = get_action('package_update')(context, package_dict)
-                log.info('Updated package %s with guid %s', package_id, harvest_object.guid)
+                package_dict_updated = get_action('package_update')(context, package_dict)
+                log.info('Updated package name=%s id=%s guid=%s', package_dict.get('name'), package_dict_created['id'], harvest_object.guid)
             except ValidationError, e:
                 self._save_object_error('Validation Error: %s' % str(e.error_summary), harvest_object, 'Import')
                 return False

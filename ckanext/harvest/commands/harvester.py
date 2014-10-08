@@ -306,8 +306,17 @@ class Harvester(CkanCommand):
         # ensure the queues are empty - needed for this command to run ok
         gather_consumer = get_gather_consumer()
         fetch_consumer = get_fetch_consumer()
-        assert not gather_consumer.fetch(), 'Gather queue is not empty!'
-        assert not fetch_consumer.fetch(), 'Fetch queue is not empty!'
+        for queue_name, consumer in (('gather', gather_consumer),
+                                     ('fetch', fetch_consumer)):
+            if consumer.fetch():
+                resp = raw_input('%s queue is not empty, but needs to be for this command to run. Clear it? (y/n)' % queue_name.capitalize())
+                if not resp.lower().startswith('y'):
+                    sys.exit(1)
+                while True:
+                    msg = consumer.fetch()
+                    if not msg:
+                        break
+                    msg.ack()
 
         # create harvest job
         context = {'model': model, 'session': model.Session,
