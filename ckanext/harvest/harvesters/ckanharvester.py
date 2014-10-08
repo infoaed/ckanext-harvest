@@ -274,13 +274,14 @@ class CKANHarvester(HarvesterBase):
                             .first()
         if previous_obj:
             # See if the object has changed
-            previous_modified = harvest_object.metadata_modified_date or \
-                self._get_object_extra(harvest_object, 'modified')
+            previous_modified = previous_obj.metadata_modified_date or \
+                previous_obj.get_extra('modified')
                 # look in the extra for backward compatibility only
             if previous_modified == modified:
                 log.info('Package with GUID %s not updated, skipping...' %
                          harvest_object.guid)
                 return None
+
             if previous_modified > modified:
                 self.save_object_error('CKAN modification date is earlier than when it was last harvested! %s Last harvest: %s This harvest: %s' %
                                         (url, previous_modified, modified),
