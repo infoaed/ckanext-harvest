@@ -187,6 +187,9 @@ class CKANHarvester(HarvesterBase):
                             'Unable to get content for URL: %s: %s' %
                             (url, e), harvest_job)
                         return None
+                except json.decoder.JSONDecodeError:
+                    log.info('CKAN instance %s does not suport revision filtering' % base_url)
+                    get_all_packages = True
 
         # It wasn't possible to get just the latest changed datasets, so simply
         # get all of them.
