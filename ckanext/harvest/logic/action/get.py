@@ -414,22 +414,14 @@ def _get_sources_for_user(context,data_dict):
     if only_active:
         query = query.filter(HarvestSource.active==True) \
 
-    if only_mine:
-        # filter to only harvest sources from this user's organizations
-        user_obj = User.get(user)
-
     if only_to_run:
         query = query.filter(HarvestSource.frequency!='MANUAL')
         query = query.filter(or_(HarvestSource.next_run<=datetime.datetime.utcnow(),
                                  HarvestSource.next_run==None)
                             )
     user_obj = User.get(user)
-    # Sysadmins will get all sources
-    if user_obj and not user_obj.sysadmin:
-        # This only applies to a non sysadmin user when using the
-        # publisher auth profile. When using the default profile,
-        # normal users will never arrive at this point, but even if they
-        # do, they will get an empty list.
+    if user_obj and not user_obj.sysadmin and only_mine:
+        # Filter by the user's organizations
 
         publisher_filters = []
         publishers_for_the_user = user_obj.get_groups(u'organization')
