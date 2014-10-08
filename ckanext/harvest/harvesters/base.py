@@ -425,7 +425,7 @@ class HarvesterBase(SingletonPlugin):
             log.debug('package_update: %r', package_dict)
             try:
                 package_dict_updated = get_action('package_update')(context, package_dict)
-                log.info('Updated package name=%s id=%s guid=%s', package_dict.get('name'), package_dict_created['id'], harvest_object.guid)
+                log.info('Updated package name=%s id=%s guid=%s', package_dict.get('name'), package_dict_updated['id'], harvest_object.guid)
             except ValidationError, e:
                 self._save_object_error('Validation Error: %s' % str(e.error_summary), harvest_object, 'Import')
                 return False
