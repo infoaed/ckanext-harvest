@@ -193,8 +193,9 @@ class ViewController(BaseController):
 
     def read(self,id):
         try:
+            show_job_status = h.check_access('harvest_job_create', {'source_id':id})
             context = {'model':model, 'user':c.user,
-                       'detailed': h.check_access('harvest_job_create', {'source_id':id})}
+                       'include_job_status': show_job_status}
             c.source = p.toolkit.get_action('harvest_source_show')(context, {'id':id})
 
             c.page = Page(

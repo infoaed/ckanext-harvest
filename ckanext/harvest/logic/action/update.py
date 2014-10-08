@@ -21,7 +21,7 @@ from ckanext.harvest.logic.schema import default_harvest_source_schema
 from ckanext.harvest.logic.dictization import harvest_source_dictize
 
 from ckanext.harvest.logic.action.create import _error_summary
-from ckanext.harvest.logic.action.get import harvest_source_show, harvest_job_list, _get_sources_for_user
+from ckanext.harvest.logic.action.get import harvest_source_show, harvest_job_list, get_sources
 from ckanext.harvest import lib as harvest_lib
 
 
@@ -191,8 +191,9 @@ def _caluclate_next_run(frequency):
 def _make_scheduled_jobs(context, data_dict):
 
     data_dict = {'only_to_run': True,
-                 'only_active': True}
-    sources = _get_sources_for_user(context, data_dict)
+                 'only_active': True,
+                 'only_mine': True}
+    sources = get_sources(context, data_dict)
 
     for source in sources:
         data_dict = {'source_id': source.id}
@@ -240,7 +241,7 @@ def harvest_jobs_run(context,data_dict):
     # Send each job to the gather queue
     publisher = get_gather_publisher()
     for job in jobs:
-        context['detailed'] = False
+        context['include_status'] = False
         source = harvest_source_show(context,{'id':job['source']})
         if source['active']:
             job_obj = HarvestJob.get(job['id'])

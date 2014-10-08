@@ -26,9 +26,18 @@ def harvest_source_show(context, data_dict):
     return {'success': True}
 
 
+@auth_allow_anonymous_access
 def harvest_source_show_status(context, data_dict):
     '''
-        Authorization check for getting the status of a harvest source's latest job
+        Authorization check for getting the status of a harvest source's datasets
+    '''
+    # Public
+    return {'success': True}
+
+
+def harvest_source_show_job_status(context, data_dict):
+    '''
+        Authorization check for getting the status of a harvest source's jobs
     '''
     # Public
     return {'success': True}
