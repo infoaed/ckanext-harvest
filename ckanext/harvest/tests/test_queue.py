@@ -189,11 +189,11 @@ class TestHarvestQueue(object):
 
         assert len(all_objects) == 3
         assert all_objects[0].state == 'COMPLETE'
-        assert all_objects[0].report_status == 'added'
+        assert all_objects[0].report_status == 'new'
         assert all_objects[1].state == 'COMPLETE'
-        assert all_objects[1].report_status == 'added'
+        assert all_objects[1].report_status == 'new'
         assert all_objects[2].state == 'COMPLETE'
-        assert all_objects[2].report_status == 'added'
+        assert all_objects[2].report_status == 'new'
 
         ## fire run again to check if job is set to Finished
         try:
@@ -210,14 +210,14 @@ class TestHarvestQueue(object):
         )
 
         assert harvest_job['status'] == u'Finished'
-        assert harvest_job['stats'] == {'added': 3}
+        assert harvest_job['stats'] == {'new': 3}
 
         harvest_source_dict = logic.get_action('harvest_source_show')(
             context,
             {'id': harvest_source['id']}
         )
 
-        assert harvest_source_dict['status']['last_job']['stats'] == {'added': 3}
+        assert harvest_source_dict['status']['last_job']['stats'] == {'new': 3}
         assert harvest_source_dict['status']['total_datasets'] == 3
         assert harvest_source_dict['status']['job_count'] == 1
 
@@ -255,13 +255,13 @@ class TestHarvestQueue(object):
                 .count()
         assert count == 3
 
-        all_objects = model.Session.query(HarvestObject).filter_by(report_status='added').all()
+        all_objects = model.Session.query(HarvestObject).filter_by(report_status='new').all()
         assert len(all_objects) == 3, len(all_objects)
 
-        all_objects = model.Session.query(HarvestObject).filter_by(report_status='updated').all()
+        all_objects = model.Session.query(HarvestObject).filter_by(report_status='reimported').all()
         assert len(all_objects) == 2, len(all_objects)
 
-        all_objects = model.Session.query(HarvestObject).filter_by(report_status='deleted').all()
+        all_objects = model.Session.query(HarvestObject).filter_by(report_status='unchanged').all()
         assert len(all_objects) == 1, len(all_objects)
 
         # run to make sure job is marked as finshed
@@ -279,7 +279,7 @@ class TestHarvestQueue(object):
             context_,
             {'id': job_id}
         )
-        assert harvest_job['stats'] == {'updated': 2, 'deleted': 1}
+        assert harvest_job['stats'] == {'reimported': 2, 'unchanged': 1}
 
         context['detailed'] = True
         harvest_source_dict = logic.get_action('harvest_source_show')(
@@ -287,6 +287,6 @@ class TestHarvestQueue(object):
             {'id': harvest_source['id']}
         )
 
-        assert harvest_source_dict['status']['last_job']['stats'] == {'updated': 2, 'deleted': 1}
+        assert harvest_source_dict['status']['last_job']['stats'] == {'reimported': 2, 'unchanged': 1}
         assert harvest_source_dict['status']['total_datasets'] == 2
         assert harvest_source_dict['status']['job_count'] == 2
