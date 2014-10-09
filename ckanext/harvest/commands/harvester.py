@@ -308,15 +308,16 @@ class Harvester(CkanCommand):
         fetch_consumer = get_fetch_consumer()
         for queue_name, consumer in (('gather', gather_consumer),
                                      ('fetch', fetch_consumer)):
-            if consumer.fetch():
-                resp = raw_input('%s queue is not empty, but needs to be for this command to run. Clear it? (y/n)' % queue_name.capitalize())
+            msg = consumer.fetch()
+            if msg:
+                print 'Message on %s queue:\n%r' % (queue_name, msg.__dict__)
+                resp = raw_input('%s queue is not empty, but needs to be for this command to run. Clear it? (y/n)' % (queue_name.capitalize()))
                 if not resp.lower().startswith('y'):
                     sys.exit(1)
-                while True:
-                    msg = consumer.fetch()
-                    if not msg:
-                        break
+                while msg:
+                    print 'Delete %s message: %r' % (queue_name, msg)
                     msg.ack()
+                    msg = consumer.fetch()
 
         # create harvest job
         context = {'model': model, 'session': model.Session,

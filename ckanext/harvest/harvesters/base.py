@@ -297,7 +297,7 @@ class HarvesterBase(SingletonPlugin):
         status = harvest_object.get_extra('status')
         if not status in ['new', 'changed', 'deleted']:
             log.error('Status is not set correctly: %r', status)
-            self._save_object_error('System error')
+            self._save_object_error('System error', harvest_object, 'Import')
             return False
 
         # Get the last harvested object (if any)
@@ -343,7 +343,8 @@ class HarvesterBase(SingletonPlugin):
             'import_source': 'harvest',  # to identify all harvested datasets
             'harvest_object_id': harvest_object.id,
             'guid': harvest_object.guid,
-            'metadata-date': harvest_object.metadata_modified_date.strftime('%Y-%m-%d'),
+            'metadata-date': harvest_object.metadata_modified_date.strftime('%Y-%m-%d')
+                             if harvest_object.metadata_modified_date else None,
             }
         default_extras = source_config.get('default_extras', {})
         if default_extras:
@@ -364,6 +365,12 @@ class HarvesterBase(SingletonPlugin):
                                                  package_dict_defaults,
                                                  source_config,
                                                  existing_dataset)
+        except PackageDictError, e:
+            log.error('Harvest PackageDictError in get_package_dict %s %r',
+                      e, harvest_object)
+            self._save_object_error('Error converting to dataset: %s' % e,
+                                    harvest_object, 'Import')
+            return False
         except Exception, e:
             log.exception('Harvest error in get_package_dict %r', harvest_object)
             self._save_object_error('System error', harvest_object, 'Import')
@@ -451,8 +458,12 @@ class HarvesterBase(SingletonPlugin):
         * extras should be converted from a dict to a list of dicts before
           returning - use extras_from_dict()
 
-        If a dict is not returned by this function, the import stage will be
-        cancelled.
+        On error, raise PackageDictError() which will record the error and
+        cancel the import of the object gracefully.
+
+        If there is nothing to import, then return None and no error will be
+        recorded.
+
         :param harvest_object: HarvestObject domain object (with access to
                                job and source objects)
         :type harvest_object: HarvestObject
@@ -470,6 +481,9 @@ class HarvesterBase(SingletonPlugin):
         '''
         pass
 
+class PackageDictError(Exception):
+    pass
+
 class PackageDictDefaults(dict):
     def merge(self, package_dict):
         '''
@@ -480,14 +494,20 @@ class PackageDictDefaults(dict):
         '''
         merged = package_dict.copy()
         for key in self:
-            if isinstance(self[key], list):
-                merged[key] = self[key] + merged.get(key, [])
-                merged[key] = remove_duplicates_in_a_list(merged[key])
-            elif isinstance(self[key], dict):
-                merged[key] = dict(self[key].items() +
-                                    merged.get(key, {}).items())
-            elif isinstance(self[key], basestring):
-                merged[key] = merged.get(key) or self[key]
-            else:
-                raise NotImplementedError()
+            try:
+                if isinstance(self[key], list):
+                    merged[key] = self[key] + merged.get(key, [])
+                    merged[key] = remove_duplicates_in_a_list(merged[key])
+                elif isinstance(self[key], dict):
+                    merged[key] = dict(self[key].items() +
+                                        merged.get(key, {}).items())
+                elif isinstance(self[key], basestring):
+                    merged[key] = merged.get(key) or self[key]
+                else:
+                    raise NotImplementedError()
+            except Exception, e:
+                # Raise a better exception with more info
+                import sys
+                raise type(e), type(e)(e.message + ' (key=%s)' % key), \
+                      sys.exc_info()[2]
         return merged
