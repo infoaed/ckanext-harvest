@@ -40,6 +40,8 @@ class DKANHarvester(CKANHarvester):
                 package['extras'] = {}
             for resource in package['resources']:
                 resource['description'] = resource['title']
+                if resource['revision_id']:
+                    del resource['revision_id']
             return url, json.dumps(package)
         except Exception, e:
             self._save_object_error(
