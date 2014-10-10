@@ -72,12 +72,16 @@
         </tr>
         <tr>
             <th>Publisher</th>
-            <py:if test="c.source.publisher_title">
-            <td>${c.source.publisher_title}</td>
-            </py:if>
-            <py:if test="not c.source.publisher_title">
-            <td>${c.source.publisher_id}</td>
-            </py:if>
+            <td>
+              <py:if test="c.source.publisher_title">
+                <a href="${h.url('organization_read', id=c.source.publisher_name)}">
+                  ${c.source.publisher_title}
+                </a>
+              </py:if>
+              <py:if test="not c.source.publisher_title">
+                  ${c.source.publisher_id}
+              </py:if>
+            </td>
         </tr>
         <tr>
             <th>Created</th>
@@ -147,18 +151,21 @@
                         </ul>
                     </py:when>
                 </py:choose>
-                Harvested records:
-                <!-- NB this will all be zero if there are no HarvestObjects - i.e. if the harvester is designed to do everything in the gather stage. Or if the gather stage can see that none of the records have updated since the last harvest and therefore no objects needed. -->
-                <py:for each="result in ['new', 'reimported', 'errored']">
-                  ${result}: ${c.source.status.last_job.stats.get(result, 0)}
-                </py:for>
-                <py:for each="result in ['deleted', 'unchanged']">
-                  <!--! 'unchanged' only used if the fetch checks if an update is necessary or not. Many harvesters may always update. So we only display these fields if there is a value. -->
-                  <py:if test="c.source.status.last_job.stats.get(result)">
+                <!-- Not displaying these numbers as they are confusing - see notes below. -->
+                <span style="display:None">
+                 Harvested records:
+                  <!-- NB this will all be zero if there are no HarvestObjects - i.e. if the harvester is designed to do everything in the gather stage. Or if the gather stage can see that none of the records have updated since the last harvest and therefore no objects needed. And datasets that were updated with state=deleted are shown as 'reimported' yet don't appear in the list of datasets.-->
+                  <py:for each="result in ['new', 'reimported', 'errored']">
                     ${result}: ${c.source.status.last_job.stats.get(result, 0)}
-                  </py:if>
-                </py:for>
-                <br/>
+                  </py:for>
+                  <py:for each="result in ['deleted', 'unchanged']">
+                    <!--! 'unchanged' only used if the fetch checks if an update is necessary or not. Many harvesters may always update. So we only display these fields if there is a value. -->
+                    <py:if test="c.source.status.last_job.stats.get(result)">
+                      ${result}: ${c.source.status.last_job.stats.get(result, 0)}
+                    </py:if>
+                  </py:for>
+                  <br/>
+                </span>
               </py:if>
              </py:if>
              <py:if test="not (c.source.status.running_job or c.source.status.last_job)">

@@ -414,7 +414,7 @@ class HarvesterBase(SingletonPlugin):
                 model.Session.execute('SET CONSTRAINTS harvest_object_package_id_fkey DEFERRED')
                 model.Session.flush()
 
-            if source_config.get('private_datasets', True):
+            if source_config.get('private_datasets', False):
                 package_dict['private'] = True
 
             log.debug('package_create: %r', package_dict)

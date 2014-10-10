@@ -41,14 +41,14 @@
                     </div>
                 </div>
 
-                <div class="control-group" style="margin-top:8px">
+                <div class="control-group" style="margin-top:8px; display:None">
                     <label class="field_req" for="title">Title</label>
                     <input id="title" name="title" size="80" class="form-control" type="text" value="${data.get('title', '')}" />
                     <span class="harvest-source-title field_error" py:if="errors.get('title', '')">${errors.get('title', '')}</span>
                     <div class="harvest-source-title instructions basic">This will be shown as the datasets source.</div>
                 </div>
 
-                <div class="control-group" style="margin-top:8px">
+                <div class="control-group" style="margin-top:8px; display:None">
                     <label class="field_opt" for="description">Description</label>
                     <textarea id="description" class="form-control" name="description" cols="30" rows="2" style="height:75px">${data.get('description', '')}</textarea>
                     <div class="instructions basic">You can add your own notes here about what the URL above represents to remind you later.</div>
@@ -73,7 +73,7 @@
                     <span py:if="not c.groups"><em>Cannot add any publishers.</em></span>
                 </div>
 
-                <div class="control-group" style="margin-top:8px">
+                <div class="control-group" style="margin-top:8px; display:None">
                     <label class="field_opt" for="config">Configuration</label>
                     <textarea class="form-control" id="config" name="config" cols="30" rows="4">${data.get('config', '')}</textarea>
                 </div>

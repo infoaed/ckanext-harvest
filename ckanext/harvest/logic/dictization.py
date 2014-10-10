@@ -13,9 +13,11 @@ def harvest_source_dictize(source, context):
 
     publisher_id = out.get('publisher_id')
     if publisher_id:
-        group  = Group.get(publisher_id)
+        group = Group.get(publisher_id)
         if group:
             out['publisher_title'] = group.title
+            out['publisher_name'] = group.name
+            out['is_organization'] = group.is_organization
 
     return out
 

@@ -40,7 +40,7 @@ class Harvester(CkanCommand):
       harvester fetch_consumer
         - starts the consumer for the fetching queue
 
-      harvester [-j] [--segments={segments}] import [source_id {source-id} | object_id {object-id} | guid {GUID}]
+      harvester [-j] [--segments={segments}] import [source_id {source-id} | harvest_object_id {object-id} | guid {GUID}]
         - perform the import stage with the last fetched objects, optionally belonging to a certain source
           or object.
           Please note that no objects will be fetched from the remote server. It will only affect
