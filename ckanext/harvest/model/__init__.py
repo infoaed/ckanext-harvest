@@ -185,6 +185,18 @@ class HarvestObject(HarvestDomainObject):
                 return extra.value
         return default
 
+    def set_extra(self, key, value):
+        '''
+        Sets an extra value (but does not commit it).
+        '''
+        for extra in self.extras:
+            if extra.key == key:
+                extra.value = value
+                return
+        extra = HarvestObjectExtra(key=key, value=value)
+        self.extras.append(extra)
+        model.Session.add(extra)
+
 
 class HarvestObjectExtra(HarvestDomainObject):
     '''Extra key value data for Harvest objects'''
@@ -332,10 +344,17 @@ def define_harvester_tables():
         Column('source_id', types.UnicodeText, ForeignKey('harvest_source.id')),
         Column('status', types.UnicodeText, default=u'New', nullable=False),
     )
-    # Was harvested_document
+    # A harvest_object contains a representation of one dataset during a
+    # particular harvest
     harvest_object_table = Table('harvest_object', metadata,
         Column('id', types.UnicodeText, primary_key=True, default=make_uuid),
+        # The guid is the 'identity' of the dataset, according to the source.
+        # So if you reharvest it, then the harvester knows which dataset to
+        # update because of this 'identity'. The identity needs to be unique
+        # within this CKAN.
         Column('guid', types.UnicodeText, default=u''),
+        # When you harvest a dataset multiple times, only the latest will be
+        # flagged 'current'
         Column('current',types.Boolean,default=False),
         Column('gathered', types.DateTime, default=datetime.datetime.utcnow),
         Column('fetch_started', types.DateTime),

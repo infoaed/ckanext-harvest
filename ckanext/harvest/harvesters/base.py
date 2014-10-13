@@ -305,11 +305,12 @@ class HarvesterBase(SingletonPlugin):
                           .filter(HarvestObject.guid==harvest_object.guid) \
                           .filter(HarvestObject.current==True) \
                           .first()
-
+        # Transfer current to the harvest_object
         if previous_object:
             previous_object.current = False
             harvest_object.package_id = previous_object.package_id
             previous_object.add()
+        harvest_object.current = True
 
         user = source_config.get('user', 'harvest')
 
@@ -360,6 +361,19 @@ class HarvesterBase(SingletonPlugin):
                     value = value.format(env)
                 package_dict_defaults['extras'][key] = value
 
+        if status in ('new', 'changed'):
+            # There are 2 circumstances that the status is wrong:
+            # 1. we are using 'paster import' to reimport this object, yet
+            # status is still 'new' from the previous harvest, yet it needs to
+            # be 'changed' so that it does a package_update().
+            # 2. the first harvest excepted, so status is 'new' because the
+            # harvest_object is there, but no package was created.
+            # Simplest solution is to set it according to whether there is an
+            # existing dataset.
+            status = 'changed' if existing_dataset else 'new'
+            harvest_object.set_extra('status', status)
+            harvest_object.save()
+
         try:
             package_dict = self.get_package_dict(harvest_object,
                                                  package_dict_defaults,
@@ -395,8 +409,6 @@ class HarvesterBase(SingletonPlugin):
         package_schema['tags'] = tag_schema
         context['schema'] = package_schema
 
-        harvest_object.current = True
-
         if status == 'new':
             # We need to explicitly provide a package ID, otherwise
             # ckanext-spatial won't be be able to link the extent to the
@@ -425,8 +437,6 @@ class HarvesterBase(SingletonPlugin):
                 self._save_object_error('Validation Error: %s' % str(e.error_summary), harvest_object, 'Import')
                 return False
         elif status == 'changed':
-            if previous_object:
-                previous_object.current = False
             package_schema = logic.schema.default_update_package_schema()
             package_dict['id'] = harvest_object.package_id
             log.debug('package_update: %r', package_dict)
