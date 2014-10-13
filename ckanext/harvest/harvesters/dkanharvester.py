@@ -1,5 +1,20 @@
 from ckanharvester import CKANHarvester
 import json
+from ckan import model
+import ckan.lib.munge as munge
+
+MIMETYPE_FORMATS = {
+    'text/html': 'HTML',
+    'text/csv': 'CSV',
+    'text/xml': 'XML',
+    'application/pdf': 'PDF',
+    'application/zip': 'ZIP',
+    'application/rdf+xml': 'RDF',
+    'application/json': 'JSON',
+    'application/vnd.ms-excel': 'XLS',
+    'application/vnd.google-earth.kml+xml': 'KML',
+    'application/msword': 'DOC',
+}
 
 class DKANHarvester(CKANHarvester):
     def info(self):
@@ -36,12 +51,40 @@ class DKANHarvester(CKANHarvester):
         try:
             content = json.loads(self._get_content(url))
             package = content['result'][0]
+
             if 'extras' not in package:
                 package['extras'] = {}
+
+            if 'name' not in package:
+                package['name'] = munge.munge_title_to_name(package['title'])
+
+            if 'description' in package:
+                package['notes'] = package['description']
+
+            for license in model.Package.get_license_register().values():
+                if license.title == package['license_title']:
+                    package['license_id'] = license.id
+                    break
+
+            # DGU ONLY: Guess theme from other metadata
+            try:
+                from ckanext.dgu.lib.theme import categorize_package, PRIMARY_THEME, SECONDARY_THEMES
+                themes = categorize_package(package)
+                if themes:
+                    package['extras'][PRIMARY_THEME] = themes[0]
+                    package['extras'][SECONDARY_THEMES] = themes[1:]
+            except ImportError:
+                pass
+
             for resource in package['resources']:
                 resource['description'] = resource['title']
+
                 if resource['revision_id']:
                     del resource['revision_id']
+
+                if 'format' not in resource:
+                    resource['format'] = MIMETYPE_FORMATS.get(resource.get('mimetype'), '')
+
             return url, json.dumps(package)
         except Exception, e:
             self._save_object_error(
