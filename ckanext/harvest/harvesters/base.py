@@ -390,7 +390,9 @@ class HarvesterBase(SingletonPlugin):
             self._save_object_error('System error', harvest_object, 'Import')
             return False
         if not package_dict:
-            return False
+            # Nothing to harvest after all.
+            # No error should be recorded, so that's why we return True.
+            return True
 
         if source_config.get('clean_tags'):
             munge_tags(package_dict)
