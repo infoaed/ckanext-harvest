@@ -57,6 +57,9 @@ class Harvester(CkanCommand):
 
       harvester job-run {source-id}
         - does a complete harvest synchronously - create job, run, gather & fetch.
+          NB Do not run this whilst the fetch or gather processes are running in the background,
+          or you'll get duplicate harvest objects and error because the gather & fetch jobs get
+          done in the background.
 
     The commands should be run from the ckanext-harvest directory and expect
     a development.ini file to be present. Most of the time you will
