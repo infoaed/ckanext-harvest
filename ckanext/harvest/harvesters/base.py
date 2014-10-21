@@ -1,5 +1,5 @@
 import logging
-import re
+import datetime
 import uuid
 
 from sqlalchemy.sql import update, bindparam
@@ -264,6 +264,42 @@ class HarvesterBase(SingletonPlugin):
 
         return None
 
+    @classmethod
+    def get_metadata_provenance_for_just_this_harvest(cls, harvest_object):
+        return {
+            'datetime': str(datetime.datetime.utcnow()),
+            'activity': 'harvest',
+            'source_url': harvest_object.source.url,
+            'source_type': harvest_object.source.type,
+            'guid': harvest_object.guid,
+            'metadata_modified_date': harvest_object.metadata_modified_date.strftime('%Y-%m-%d')
+                             if harvest_object.metadata_modified_date else None,
+            }
+
+    @classmethod
+    def get_metadata_provenance(cls, harvest_object, harvested_provenance=None):
+        '''Returns the metadata_provenance for a dataset, which is the details
+        of this harvest added onto any existing metadata_provenance value in
+        the dataset. This should be stored in the metadata_provenance extra
+        when harvesting.
+
+        Provenance is a record of harvests, imports and perhaps other
+        activities of production too, as suggested by W3C PROV.
+
+        This helps keep track when a dataset is created in site A, imported
+        into site B, harvested into site C and from there is harvested into
+        site D. The metadata_provence will be a list of four dicts with the
+        details: [A, B, C, D].
+        '''
+        if isinstance(harvested_provenance, basestring):
+            harvested_provenance = json.loads(harvested_provenance)
+        elif harvested_provenance is None:
+            harvested_provenance = []
+        assert isinstance(harvested_provenance, list)
+        metadata_provenance = harvested_provenance + \
+            [cls.get_metadata_provenance_for_just_this_harvest(harvest_object)]
+        return json.dumps(metadata_provenance)
+
     def import_stage(self, harvest_object):
         '''The import_stage contains lots of boiler plate, updating the
         harvest_objects correctly etc, so inherit this method and customize the
@@ -346,6 +382,9 @@ class HarvesterBase(SingletonPlugin):
             'guid': harvest_object.guid,
             'metadata-date': harvest_object.metadata_modified_date.strftime('%Y-%m-%d')
                              if harvest_object.metadata_modified_date else None,
+            # Add provenance for this harvest, so at least that info is saved
+            # even if the harvester doesn't fill it in properly with get_provenance().
+            'metadata_provenance': self.get_metadata_provenance(harvest_object, harvested_provenance=None),
             }
         default_extras = source_config.get('default_extras', {})
         if default_extras:

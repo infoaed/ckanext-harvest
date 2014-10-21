@@ -394,6 +394,11 @@ class CKANHarvester(HarvesterBase):
 
             package_dict['owner_org'] = validated_org or local_org
 
+        # Metadata provenance
+        package_dict['extras']['metadata_provenance'] = self.get_metadata_provenance(
+            harvested_provenance=package_dict_harvested['extras'].get('metadata_provenance'),
+            harvest_object=harvest_object)
+
         # Find any extras whose values are not strings and try to convert
         # them to strings, as non-string extras are not allowed anymore in
         # CKAN 2.0.
