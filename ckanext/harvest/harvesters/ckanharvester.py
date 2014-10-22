@@ -417,9 +417,12 @@ class CKANHarvester(HarvesterBase):
         package_dict['tags'] = [dict(name=name)
                                 for name in package_dict['tags']]
 
-        # Clear remote url_type for resources (eg datastore, upload) as we
-        # are only creating normal resources with links to the remote ones
         for resource in package_dict.get('resources', []):
+            # Clear remote url_type for resources (eg datastore, upload) as we
+            # are only creating normal resources with links to the remote ones
             resource.pop('url_type', None)
+            # Details of the upload are irrelevant to this CKAN, so strip that
+            if resource.get('resource_type') == 'file.upload':
+                resource['resource_type'] = 'file'
 
         return package_dict
