@@ -267,13 +267,14 @@ class HarvesterBase(SingletonPlugin):
     @classmethod
     def get_metadata_provenance_for_just_this_harvest(cls, harvest_object):
         return {
-            'datetime': str(datetime.datetime.utcnow()),
+            'activity_occurred': datetime.datetime.utcnow().isoformat(),
             'activity': 'harvest',
-            'source_url': harvest_object.source.url,
-            'source_type': harvest_object.source.type,
-            'guid': harvest_object.guid,
-            'metadata_modified_date': harvest_object.metadata_modified_date.strftime('%Y-%m-%d')
-                             if harvest_object.metadata_modified_date else None,
+            'harvest_source_url': harvest_object.source.url,
+            'harvest_source_title': harvest_object.source.title,
+            'harvest_source_type': harvest_object.source.type,
+            'harvested_guid': harvest_object.guid,
+            'harvested_metadata_modified': harvest_object.metadata_modified_date.isoformat()
+                 if harvest_object.metadata_modified_date else None,
             }
 
     @classmethod
