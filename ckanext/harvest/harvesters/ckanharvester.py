@@ -399,6 +399,11 @@ class CKANHarvester(HarvesterBase):
             harvested_provenance=package_dict_harvested['extras'].get('metadata_provenance'),
             harvest_object=harvest_object)
 
+        # DGU local authority field fix - Barnet uses different key
+        la_service = package_dict['extras']['Service type URI']
+        if la_service:
+            package_dict['extras']['la_service'] = la_service
+
         # Find any extras whose values are not strings and try to convert
         # them to strings, as non-string extras are not allowed anymore in
         # CKAN 2.0.
@@ -411,6 +416,16 @@ class CKANHarvester(HarvesterBase):
                     # If converting to a string fails, just delete it.
                     del package_dict['extras'][key]
 
+        # DGU ONLY: Guess theme from other metadata
+        try:
+            from ckanext.dgu.lib.theme import categorize_package, PRIMARY_THEME, SECONDARY_THEMES
+            themes = categorize_package(package_dict)
+            if themes:
+                package_dict['extras'][PRIMARY_THEME] = themes[0]
+                package_dict['extras'][SECONDARY_THEMES] = themes[1:]
+        except ImportError:
+            pass
+ 
         # Convert dicts to lists (required for package_create/update)
         package_dict['extras'] = [dict(key=key, value=package_dict['extras'][key])
                                     for key in package_dict['extras']]
