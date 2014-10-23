@@ -400,7 +400,7 @@ class CKANHarvester(HarvesterBase):
             harvest_object=harvest_object)
 
         # DGU local authority field fix - Barnet uses different key
-        la_service = package_dict['extras']['Service type URI']
+        la_service = package_dict['extras'].get('Service type URI')
         if la_service:
             package_dict['extras']['la_service'] = la_service
 
