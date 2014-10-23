@@ -28,7 +28,7 @@ def default_harvest_source_schema():
         'id': [ignore_missing, unicode, harvest_source_id_exists],
         'url': [not_empty, unicode, harvest_source_url_validator],
         'type': [not_empty, unicode, harvest_source_type_exists],
-        'title': [ignore_missing,unicode],
+        'title': [not_empty, unicode],
         'description': [ignore_missing,unicode],
         'active': [ignore_missing,harvest_source_active_validator],
         'user_id': [ignore_missing,unicode],

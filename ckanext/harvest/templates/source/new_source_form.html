@@ -16,36 +16,37 @@
         <div class="panel panel-default">
             <div class="panel-heading"><strong>Source information</strong></div>
             <div class="panel-body">
+
                 <div class="control-group">
-                    <label class="field_req" for="url">URL for source of metadata *</label>
+                    <label class="field_req" for="title">Title of the source</label>
+                    <input id="title" name="title" size="80" class="form-control" type="text" value="${data.get('title', '')}" />
+                    <span class="harvest-source-title field_error" py:if="errors.get('title', '')">${errors.get('title', '')}</span>
+                    <div class="harvest-source-title instructions basic">Title of the source website, catalogue or simply the provider e.g. 'London Datastore' or 'Borchester Council'</div>
+                </div>
+
+                <div class="control-group" style="margin-top:10px">
+                    <label class="field_req" for="url">URL for source of metadata</label>
                     <input id="url" name="url" size="40" class="form-control" type="url" value="${data.get('url', '')}" />
                     <span class="field_error" py:if="errors.get('url', '')">${errors.get('url', '')}</span>
                     <div class="instructions basic">This should include the <tt>http://</tt> part of the URL</div>
                 </div>
 
-                <div class="control-group" style="margin-top:8px">
-                    <label class="field_req" for="type">Source Type *</label>
+                <div class="control-group" style="margin-top:10px">
+                    <label class="field_req" for="type">Source Type/Format</label>
                     <select id="type" name="type" class="form-control">
                         <py:for each="harvester in harvesters">
                          <option value="${harvester.name}" py:attrs="{'selected': 'selected' if data.get('type', '') == harvester.name else None, 'data-config': harvester.show_config}" >${harvester.title}</option>
                         </py:for>
                     </select>
                     <span class="field_error" py:if="errors.get('type', '')">${errors.get('type', '')}</span>
-                    <div class="instructions basic">
+                    <div class="instructions basic" style="line-height: 18px">
                         <p>Which type of source does the URL above represent?</p>
                         <ul>
                             <py:for each="harvester in harvesters">
-                            <li><span class="harvester-title">${harvester.title}</span>: ${harvester.description}</li>
+                            <li style="margin-top:4px"><span class="harvester-title">${harvester.title}</span>: ${harvester.description}</li>
                             </py:for>
                         </ul>
                     </div>
-                </div>
-
-                <div class="control-group" style="margin-top:8px; display:None">
-                    <label class="field_req" for="title">Title</label>
-                    <input id="title" name="title" size="80" class="form-control" type="text" value="${data.get('title', '')}" />
-                    <span class="harvest-source-title field_error" py:if="errors.get('title', '')">${errors.get('title', '')}</span>
-                    <div class="harvest-source-title instructions basic">This will be shown as the datasets source.</div>
                 </div>
 
                 <div class="control-group" style="margin-top:8px; display:None">
