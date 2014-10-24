@@ -187,20 +187,14 @@ class CKANHarvester(HarvesterBase):
                             'Unable to get content for URL: %s: %s' %
                             (url, e), harvest_job)
                         return None
+                except json.decoder.JSONDecodeError:
+                    log.info('CKAN instance %s does not suport revision filtering' % base_url)
+                    get_all_packages = True
 
         # It wasn't possible to get just the latest changed datasets, so simply
         # get all of them.
         if get_all_packages:
-            # Request all remote packages
-            url = base_rest_url + '/package'
-            try:
-                content = self._get_content(url)
-            except Exception, e:
-                self.save_gather_error('Unable to get content for URL: %s: %s'
-                                        % (url, e), harvest_job)
-                return None
-
-            package_ids = json.loads(content)
+            package_ids = self._get_all_packages(base_rest_url, harvest_job)
 
         try:
             object_ids = []
@@ -221,22 +215,28 @@ class CKANHarvester(HarvesterBase):
         except Exception, e:
             self.save_gather_error('%r' % e.message, harvest_job)
 
+    def _get_all_packages(self, base_rest_url, harvest_job):
+        # Request all remote packages
+        url = base_rest_url + '/package'
+        try:
+            content = self._get_content(url)
+        except Exception, e:
+            self._save_gather_error('Unable to get content for URL: %s: %s'
+                                    % (url, e), harvest_job)
+            return None
+
+        return json.loads(content)
+
     def fetch_stage(self, harvest_object):
         log.debug('In CKANHarvester fetch_stage')
 
         self._set_config(harvest_object.job.source.config)
 
         # Get source URL
-        url = harvest_object.source.url.rstrip('/')
-        url = url + self._get_rest_api_offset() + '/package/' + harvest_object.guid
+        base_url = harvest_object.source.url.rstrip('/')
+        url, content = self._get_package(base_url, harvest_object)
 
-        # Get contents
-        try:
-            content = self._get_content(url)
-        except Exception, e:
-            self.save_object_error(
-                'Unable to get content for package: %s: %r' % (url, e),
-                harvest_object)
+        if content is None:
             return None
 
         # Save the fetched contents in the HarvestObject
@@ -274,13 +274,14 @@ class CKANHarvester(HarvesterBase):
                             .first()
         if previous_obj:
             # See if the object has changed
-            previous_modified = harvest_object.metadata_modified_date or \
-                self._get_object_extra(harvest_object, 'modified')
+            previous_modified = previous_obj.metadata_modified_date or \
+                previous_obj.get_extra('modified')
                 # look in the extra for backward compatibility only
             if previous_modified == modified:
                 log.info('Package with GUID %s not updated, skipping...' %
                          harvest_object.guid)
                 return None
+
             if previous_modified > modified:
                 self.save_object_error('CKAN modification date is earlier than when it was last harvested! %s Last harvest: %s This harvest: %s' %
                                         (url, previous_modified, modified),
@@ -298,6 +299,18 @@ class CKANHarvester(HarvesterBase):
 
         return True
 
+    def _get_package(self, base_url, harvest_object):
+        url = base_url + self._get_rest_api_offset() + '/package/' + harvest_object.guid
+
+        # Get contents
+        try:
+            return url, self._get_content(url)
+        except Exception, e:
+            self._save_object_error(
+                'Unable to get content for package: %s: %r' % (url, e),
+                harvest_object)
+            return None, None
+
     def get_package_dict(self, harvest_object, package_dict_defaults,
                          source_config, existing_dataset):
         try:
@@ -311,6 +324,10 @@ class CKANHarvester(HarvesterBase):
         if override_extras:
             package_dict['extras'].update(package_dict_defaults['extras'])
         source_config['clean_tags'] = True
+
+        package_dict.setdefault('name', self._gen_new_name(package_dict['title']))
+
+        package_dict['name'] = self._check_name(package_dict['name'])
 
         if package_dict.get('type') == 'harvest':
             log.debug('Remote dataset is a harvest source, ignoring...')
@@ -429,8 +446,8 @@ class CKANHarvester(HarvesterBase):
         # Convert dicts to lists (required for package_create/update)
         package_dict['extras'] = [dict(key=key, value=package_dict['extras'][key])
                                     for key in package_dict['extras']]
-        package_dict['tags'] = [dict(name=name)
-                                for name in package_dict['tags']]
+
+        self._fix_tags(package_dict)
 
         for resource in package_dict.get('resources', []):
             # Clear remote url_type for resources (eg datastore, upload) as we
@@ -441,3 +458,7 @@ class CKANHarvester(HarvesterBase):
                 resource['resource_type'] = 'file'
 
         return package_dict
+
+    def _fix_tags(self, package_dict):
+        package_dict['tags'] = [dict(name=name)
+                                for name in package_dict['tags']]
