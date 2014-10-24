@@ -27,6 +27,7 @@ class CKANHarvester(HarvesterBase):
     config = None
 
     api_version = 2
+    ckan_revision_api_works = True
 
     def _get_rest_api_offset(self):
         return '/api/%d/rest' % self.api_version
@@ -144,7 +145,8 @@ class CKANHarvester(HarvesterBase):
 
         # Under normal circumstances we can just get the packages modified
         # since the last job
-        if (previous_job and not previous_job.gather_errors and
+        if (self.ckan_revision_api_works and
+                previous_job and not previous_job.gather_errors and
                 len(previous_job.objects)):
             if not self.config.get('force_all'):
                 get_all_packages = False
@@ -194,7 +196,7 @@ class CKANHarvester(HarvesterBase):
         # It wasn't possible to get just the latest changed datasets, so simply
         # get all of them.
         if get_all_packages:
-            package_ids = self._get_all_packages(base_rest_url, harvest_job)
+            package_ids = self._get_all_packages(base_url, harvest_job)
 
         try:
             object_ids = []
@@ -215,9 +217,9 @@ class CKANHarvester(HarvesterBase):
         except Exception, e:
             self.save_gather_error('%r' % e.message, harvest_job)
 
-    def _get_all_packages(self, base_rest_url, harvest_job):
-        # Request all remote packages
-        url = base_rest_url + '/package'
+    def _get_all_packages(self, base_url, harvest_job):
+        '''Request the IDs of all remote packages'''
+        url = base_url + self._get_rest_api_offset() + '/package'
         try:
             content = self._get_content(url)
         except Exception, e:
@@ -237,7 +239,10 @@ class CKANHarvester(HarvesterBase):
         url, content = self._get_package(base_url, harvest_object)
 
         if content is None:
-            return None
+            self.save_object_error(
+                'CKAN content is empty %s' % url,
+                harvest_object)
+            return False
 
         # Save the fetched contents in the HarvestObject
         harvest_object.content = content
@@ -250,21 +255,21 @@ class CKANHarvester(HarvesterBase):
             self.save_object_error(
                 'CKAN content could not be deserialized: %s: %r' % (url, e),
                 harvest_object)
-            return None
+            return False
         modified = dataset.get('metadata_modified')
         # e.g. "2014-05-10T02:22:05.483412"
         if not modified:
             self.save_object_error(
                 'CKAN content did not have metadata_modified: %s' % url,
                 harvest_object)
-            return None
+            return False
         try:
             modified = dateutil.parser.parse(modified)
         except ValueError:
             self.save_object_error(
                 'CKAN modified date did not parse: %s url: %s' % (modified, url),
                 harvest_object)
-            return None
+            return False
 
 
         # Set the HarvestObjectExtra.status
@@ -277,15 +282,16 @@ class CKANHarvester(HarvesterBase):
             previous_modified = previous_obj.metadata_modified_date or \
                 previous_obj.get_extra('modified')
                 # look in the extra for backward compatibility only
-            if previous_modified == modified:
-                log.info('Package with GUID %s not updated, skipping...' %
-                         harvest_object.guid)
-                return None
+            if not self.config.get('force_all'):
+                if previous_modified == modified:
+                    log.info('Package with GUID %s not updated, skipping...' %
+                            harvest_object.guid)
+                    return 'unchanged'  # it will not carry on to import_stage
 
-            if previous_modified > modified:
-                self.save_object_error('CKAN modification date is earlier than when it was last harvested! %s Last harvest: %s This harvest: %s' %
-                                        (url, previous_modified, modified),
-                                        harvest_object)
+                if previous_modified > modified:
+                    self.save_object_error('CKAN modification date is earlier than when it was last harvested! %s Last harvest: %s This harvest: %s' %
+                                            (url, previous_modified, modified),
+                                            harvest_object)
             log.info('Package with GUID %s exists and needs to be updated' %
                      harvest_object.guid)
             status = 'changed'
@@ -311,14 +317,26 @@ class CKANHarvester(HarvesterBase):
                 harvest_object)
             return None, None
 
-    def get_package_dict(self, harvest_object, package_dict_defaults,
-                         source_config, existing_dataset):
+    @classmethod
+    def get_harvested_package_dict(cls, harvest_object):
+        '''Returns the remote package_dict. This method only exists so that
+        dkanharvester can override it and convert the DKAN-style bits into
+        CKAN-style.
+        '''
         try:
             package_dict_harvested = json.loads(harvest_object.content)
         except ValueError, e:
-            self.save_object_error('CKAN content could not be deserialized: %s: %r' % \
+            cls.save_object_error('CKAN content could not be deserialized: %s: %r' % \
                                     (harvest_object.url, e), harvest_object)
             return None
+        return package_dict_harvested
+
+    def get_package_dict(self, harvest_object, package_dict_defaults,
+                         source_config, existing_dataset):
+        package_dict_harvested = self.get_harvested_package_dict(harvest_object)
+        if package_dict_harvested is None:
+            return
+
         package_dict = package_dict_defaults.merge(package_dict_harvested)
         override_extras = source_config.get('override_extras', False)
         if override_extras:
