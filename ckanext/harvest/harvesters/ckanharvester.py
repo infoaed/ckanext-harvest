@@ -344,8 +344,11 @@ class CKANHarvester(HarvesterBase):
             package_dict['extras'].update(package_dict_defaults['extras'])
         source_config['clean_tags'] = True
 
-        package_dict.setdefault('name', self._gen_new_name(package_dict['title']))
-        if not existing_dataset:
+        # name - ignore the default value because we should try and use the
+        # harvested name if possible.
+        package_dict['name'] = package_dict_harvested.get('name') or \
+                               self._gen_new_name(package_dict['title'])
+        if not existing_dataset or package_dict['name'] != existing_dataset.name:
             package_dict['name'] = self._check_name(package_dict['name'])
 
         if package_dict.get('type') == 'harvest':

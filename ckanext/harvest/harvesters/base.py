@@ -490,6 +490,7 @@ class HarvesterBase(SingletonPlugin):
                 return False
 
         model.Session.commit()
+        model.Session.remove()
         return True
 
     def get_package_dict(self, harvest_object, package_dict_defaults,
