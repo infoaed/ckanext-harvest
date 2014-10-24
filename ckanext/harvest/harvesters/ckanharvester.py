@@ -58,7 +58,8 @@ class CKANHarvester(HarvesterBase):
     def _set_config(self,config_str):
         if config_str:
             self.config = json.loads(config_str)
-            self.api_version = int(self.config['api_version'])
+            if self.config.get('api_version'):
+                self.api_version = int(self.config['api_version'])
 
             log.debug('Using config: %r', self.config)
         else:
