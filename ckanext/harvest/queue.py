@@ -73,9 +73,13 @@ def get_consumer(queue_name, routing_key):
                   connection.__dict__)
         raise
 
-def gather_callback(message_data,message):
+def gather_callback(message_data, message):
     try:
-        id = message_data['harvest_job_id']
+        try:
+            id = message_data['harvest_job_id']
+        except KeyError:
+            log.error('No harvest job id received')
+            return
         log.debug('Received harvest job id: %s' % id)
 
         # Get rid of any old session state that may still be around. This is
@@ -103,10 +107,13 @@ def gather_callback(message_data,message):
                     job.save()
                     try:
                         harvest_object_ids = harvester.gather_stage(job)
-                    except (Exception, KeyboardInterrupt):
+                    except (Exception, KeyboardInterrupt), e:
                         # exception means we do not know the object ids so we
                         # can't send them to the fetch queue, however keep them
                         # for the user to see what was gathered
+                        log.exception(e)
+                        log.error('Gather exception: %r', e)
+                        job.status = 'Aborted'
                         raise
                     finally:
                         job.gather_finished = datetime.datetime.now()
@@ -126,8 +133,6 @@ def gather_callback(message_data,message):
         finally:
             publisher.close()
 
-    except KeyError:
-        log.error('No harvest job id received')
     finally:
         message.ack()
 
