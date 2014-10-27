@@ -75,22 +75,34 @@ def get_consumer(queue_name, routing_key):
 
 def gather_callback(message_data, message):
     try:
+        id = message_data['harvest_job_id']
+    except KeyError:
+        log.error('No harvest job id received')
+        return
+    log.debug('Received harvest job id: %s' % id)
+
+    # Get rid of any old session state that may still be around. This is
+    # a simple alternative to creating a new session for this callback.
+    model.Session.expire_all()
+
+    # Get a publisher for the fetch queue
+    publisher = get_fetch_publisher()
+
+    try:
+        job = HarvestJob.get(id)
+    except Exception, e:
+        # I have occasionally seen:
+        # sqlalchemy.exc.OperationalError "SSL connection has been closed unexpectedly"
+        log.exception(e)
+        log.error('Connection Error during gather of %s: %r %r' % (id, e, e.args))
+        # By not sending the message.ack(), it will be retried by RabbitMQ
+        # later.
+        # Try to clear the issue with a remove
+        model.Session.remove()
+        return
+
+    try:
         try:
-            id = message_data['harvest_job_id']
-        except KeyError:
-            log.error('No harvest job id received')
-            return
-        log.debug('Received harvest job id: %s' % id)
-
-        # Get rid of any old session state that may still be around. This is
-        # a simple alternative to creating a new session for this callback.
-        model.Session.expire_all()
-
-        # Get a publisher for the fetch queue
-        publisher = get_fetch_publisher()
-
-        try:
-            job = HarvestJob.get(id)
             if not job:
                 log.error('Harvest job does not exist: %s' % id)
                 return
@@ -156,6 +168,7 @@ def fetch_callback(message_data, message):
         # I quite often see:
         # sqlalchemy.exc.OperationalError "server closed the connection unexpectedly"
         # followed by sqlalchemy.exc.StatementError "Can't reconnect until invalid transaction is rolled back"
+        log.exception(e)
         log.error('Connection Error during fetch of %s: %r %r' % (id, e, e.args))
         # By not sending the message.ack(), it will be retried by RabbitMQ
         # later.
