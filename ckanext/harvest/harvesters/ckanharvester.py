@@ -238,11 +238,8 @@ class CKANHarvester(HarvesterBase):
         # Get source URL
         base_url = harvest_object.source.url.rstrip('/')
         url, content = self._get_package(base_url, harvest_object)
-
         if content is None:
-            self.save_object_error(
-                'CKAN content is empty %s' % url,
-                harvest_object)
+            # _get_package has already saved an object_error
             return False
 
         # Save the fetched contents in the HarvestObject
