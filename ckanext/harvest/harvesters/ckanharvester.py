@@ -198,12 +198,14 @@ class CKANHarvester(HarvesterBase):
         # get all of them.
         if get_all_packages:
             package_ids = self._get_all_packages(base_url, harvest_job)
-
+            if package_ids is None:
+                # gather_error already saved
+                return None
         try:
             object_ids = []
             if not package_ids:
-                self.save_gather_error('No packages received for URL: %s' %
-                                        url, harvest_job)
+                self.save_gather_error('No datasets listed',
+                                       harvest_job)
                 return None
 
             # Create objects for each dataset at the remote CKAN
@@ -224,7 +226,7 @@ class CKANHarvester(HarvesterBase):
         try:
             content = self._get_content(url)
         except Exception, e:
-            self._save_gather_error('Unable to get content for URL: %s: %s'
+            self._save_gather_error('Unable to get content for URL: %s - %s'
                                     % (url, e), harvest_job)
             return None
 

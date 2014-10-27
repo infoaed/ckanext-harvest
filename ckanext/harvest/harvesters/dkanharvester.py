@@ -38,7 +38,7 @@ class DKANHarvester(CKANHarvester):
         try:
             content = self._get_content(url)
         except Exception, e:
-            self._save_gather_error('Unable to get content for URL: %s: %s'
+            self._save_gather_error('Unable to get content for URL: %s - %s'
                                     % (url, e), harvest_job)
             return None
 
@@ -55,7 +55,7 @@ class DKANHarvester(CKANHarvester):
             content = self._get_content(url)
         except Exception, e:
             self._save_object_error(
-                'Unable to get content for package: %s: %r' % (url, e),
+                'Unable to get content for package: %s - %r' % (url, e),
                 harvest_object)
             return None, None
 
