@@ -348,8 +348,11 @@ class CKANHarvester(HarvesterBase):
         # harvested name if possible.
         package_dict['name'] = package_dict_harvested.get('name') or \
                                self._gen_new_name(package_dict['title'])
-        if not existing_dataset or package_dict['name'] != existing_dataset.name:
+        if not existing_dataset:
             package_dict['name'] = self._check_name(package_dict['name'])
+        elif package_dict['name'] != existing_dataset.name:
+            package_dict['name'] = self._check_name(package_dict['name'],
+                                        existing_name=existing_dataset.name)
 
         if package_dict.get('type') == 'harvest':
             log.debug('Remote dataset is a harvest source, ignoring...')

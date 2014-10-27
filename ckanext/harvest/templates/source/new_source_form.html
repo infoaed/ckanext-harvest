@@ -74,7 +74,7 @@
                     <span py:if="not c.groups"><em>Cannot add any publishers.</em></span>
                 </div>
 
-                <div class="control-group" style="margin-top:8px; display:None">
+                <div class="control-group" style="margin-top:8px; ${'display:None' if not c.userobj.sysadmin else ''}">
                     <label class="field_opt" for="config">Configuration</label>
                     <textarea class="form-control" id="config" name="config" cols="30" rows="4">${data.get('config', '')}</textarea>
                 </div>

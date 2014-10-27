@@ -65,14 +65,19 @@ class HarvesterBase(SingletonPlugin):
     _gen_new_name = munge_title_to_name
 
     @staticmethod
-    def check_name(name):
+    def check_name(name, existing_name=None):
         '''
-        Checks if a package name already exists in the database, and adds
-        a counter at the end if it does exist.
+        Checks if another dataset has the name already. If it does, then it
+        a counter at the end if it does exist. Returns the adjusted name.
+
+        :param name: the ideal name for the dataset
+        :param existing_name: the name of the dataset as it stands
         '''
         like_q = u'%s%%' % name
         pkg_query = Session.query(Package).filter(Package.name.ilike(like_q)).limit(1000)
-        taken = [pkg.name for pkg in pkg_query]
+        taken = set([pkg.name for pkg in pkg_query])
+        if existing_name and existing_name in taken:
+            taken.remove(existing_name)
         if name not in taken:
             return name
         else:
