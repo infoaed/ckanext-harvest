@@ -60,7 +60,7 @@ class CKANHarvester(HarvesterBase):
         return {
             'name': 'ckan',
             'title': 'CKAN',
-            'description': 'Harvests remote CKAN instances',
+            'description': 'Korjab andmeid muudest CKAN instantsidest',
             'form_config_interface':'Text'
         }
 

@@ -5,8 +5,8 @@
   xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <div class="alert alert-danger" py:if="error_summary">
-    <h2>Errors in form</h2>
-    <p>The form contains invalid entries:</p>
+    <h2>Vormil on vead!</h2>
+    <p>Vormil on vigaseid sisestusi:</p>
     <ul>
         <li py:for="key, error in error_summary.items()">${"%s: %s" % (key, error)}</li>
     </ul>
@@ -14,17 +14,20 @@
 
     <div class="col-md-6">
         <div class="panel panel-default">
-            <div class="panel-heading"><strong>Source information</strong></div>
+            <div class="panel-heading"><strong>Andmekorje allika informatsioon</strong></div>
             <div class="panel-body">
                 <div class="control-group">
-                    <label class="field_req" for="url">URL for source of metadata *</label>
+                    <label class="field_req" for="url">Metaandmete allika URL *</label>
                     <input id="url" name="url" size="40" class="form-control" type="url" value="${data.get('url', '')}" />
                     <span class="field_error" py:if="errors.get('url', '')">${errors.get('url', '')}</span>
-                    <div class="instructions basic">This should include the <tt>http://</tt> part of the URL</div>
+                    <div class="instructions basic">
+                        Kui allikaks on muu CKAN instants, siis tuleks siia sisestada selle URL kuni "/api/..." sektsioonini.<br/>
+                        Näide: <tt>http://opendatatest.riik.ee/</tt>
+                    </div>
                 </div>
 
                 <div class="control-group" style="margin-top:8px">
-                    <label class="field_req" for="type">Source Type *</label>
+                    <label class="field_req" for="type">Allika tüüp *</label>
                     <select id="type" name="type" class="form-control">
                         <py:for each="harvester in harvesters">
                          <option value="${harvester.name}" py:attrs="{'selected': 'selected' if data.get('type', '') == harvester.name else None, 'data-config': harvester.show_config}" >${harvester.title}</option>
@@ -32,7 +35,7 @@
                     </select>
                     <span class="field_error" py:if="errors.get('type', '')">${errors.get('type', '')}</span>
                     <div class="instructions basic">
-                        <p>Which type of source does the URL above represent?</p>
+                        <p>Mis tüüpi allikat ülaltoodud URL endast kujutab?</p>
                         <ul>
                             <py:for each="harvester in harvesters">
                             <li><span class="harvester-title">${harvester.title}</span>: ${harvester.description}</li>
@@ -42,16 +45,18 @@
                 </div>
 
                 <div class="control-group" style="margin-top:8px">
-                    <label class="field_req" for="title">Title</label>
+                    <label class="field_req" for="title">Pealkiri</label>
                     <input id="title" name="title" size="80" class="form-control" type="text" value="${data.get('title', '')}" />
                     <span class="harvest-source-title field_error" py:if="errors.get('title', '')">${errors.get('title', '')}</span>
-                    <div class="harvest-source-title instructions basic">This will be shown as the datasets source.</div>
+                    <div class="harvest-source-title instructions basic">Andmekorje allika nimetus.</div>
                 </div>
 
                 <div class="control-group" style="margin-top:8px">
-                    <label class="field_opt" for="description">Description</label>
+                    <label class="field_opt" for="description">Kirjeldus</label>
                     <textarea id="description" class="form-control" name="description" cols="30" rows="2" style="height:75px">${data.get('description', '')}</textarea>
-                    <div class="instructions basic">You can add your own notes here about what the URL above represents to remind you later.</div>
+                    <div class="instructions basic">
+                        Andmekorja allika kirjeldus võimaldamaks teil hiljem meenutada, mida antud allikas täpselt endast kujutab.
+                    </div>
                 </div>
             </div>
         </div>
@@ -59,10 +64,10 @@
 
     <div class="col-md-6">
         <div class="panel panel-default">
-            <div class="panel-heading"><strong>Ownership/Configuration</strong></div>
+            <div class="panel-heading"><strong>Konfiguratsioon</strong></div>
             <div class="panel-body">
                 <div class="control-group">
-                    <label class="field_opt" for="groups__${len(data.get('groups', []))}__id">Publisher</label>
+                    <label class="field_opt" for="groups__${len(data.get('groups', []))}__id">Korjatavate metaandmete teabevaldaja</label>
                     <py:if test="c.groups">
                       <select id="publisher_id" name="publisher_id" class="form-control">
                         <py:for each="group in c.groups">
@@ -70,32 +75,36 @@
                         </py:for>
                       </select>
                     </py:if>
-                    <span py:if="not c.groups"><em>Cannot add any publishers.</em></span>
+                    <span py:if="not c.groups"><em>Ei saa lisada ühtegi teabevaldajat.</em></span>
                 </div>
 
                 <div class="control-group" style="margin-top:8px">
-                    <label class="field_opt" for="config">Configuration</label>
+                    <label class="field_opt" for="config">Konfiguratsioon</label>
                     <textarea class="form-control" id="config" name="config" cols="30" rows="4">${data.get('config', '')}</textarea>
+                    <div class="instructions basic">
+                        Täita kui andmekorje allikaks on teine CKAN instants. Siia tuleb sisestada CKAN'ist andmekorje konfiguratsioon JSON formaadis.<br/>
+                        Täpsemalt loe vastavatest võimalustest <a href="https://github.com/datagovuk/ckanext-harvest#the-ckan-harvester">CKAN andmekorje mooduli kodulehelt</a>.
+                    </div>
                 </div>
 
                 <div class="control-group" style="margin-top:8px">
-                    <label class="field_opt" for="active">State</label>
+                    <label class="field_opt" for="active">Sttaus</label>
                     <select id="active" name="active" class="form-control">
-                        <option py:attrs="{'selected': 'selected' if data.get('active') or not 'active' in data else None}" value="True">active</option>
-                        <option py:attrs="{'selected': 'selected' if 'active' in data and not data.get('active') else None}" value="False">inactive</option>
+                        <option py:attrs="{'selected': 'selected' if data.get('active') or not 'active' in data else None}" value="True">aktiivne</option>
+                        <option py:attrs="{'selected': 'selected' if 'active' in data and not data.get('active') else None}" value="False">aktiveerimata</option>
                     </select>
                     <py:if test="data.get('active') or not 'active' in data">
-                        <div>This harvest source is <span class="source-state-active">Active</span></div>
+                        <div>See andmekorja allikas on praegu: <span class="source-state-active">Aktiivne</span></div>
                     </py:if>
                     <py:if test="'active' in data and not data.get('active')">
-                         <div>This harvest source is <span class="source-state-inactive">Inactive</span></div>
+                         <div>See andmekorja allikas on praegu: <span class="source-state-inactive">Aktiveerimata</span></div>
                     </py:if>
                 </div>
             </div>
         </div>
 
                 <div class="form-actions">
-            <input id="save" name="save" value="Save" type="submit" class="btn btn-primary"/> or <a href="/harvest">Return to the harvest sources list</a>
+            <input id="save" name="save" value="Salvesta" type="submit" class="btn btn-primary"/> or <a href="/harvest">Tagasi andmekorje allikate loetellu</a>
         </div>
 
     </div>
