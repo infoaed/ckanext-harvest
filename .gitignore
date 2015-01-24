@@ -10,3 +10,5 @@ dist
 development.ini
 *.swp
 *~
+/.pydevproject
+/.project
