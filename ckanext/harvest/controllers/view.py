@@ -241,7 +241,7 @@ class ViewController(BaseController):
             msg = u'Viga allika lisamisel andmekorje järjekorda: %s' % str(e)
             h.flash_error(msg)
         except HarvestNotice, e:
-            msg = u'Takistus allika lisamisel andmekorje järjekorda: %s' % str(e)
+            msg = u'Takistus allika lisamisel andmekorje järjekorda: %s' % unicode(e)
             h.flash_notice(msg)
         except Exception, e:
             msg = 'Tekkis viga: [%s]' % str(e)
