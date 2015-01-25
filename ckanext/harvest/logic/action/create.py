@@ -73,7 +73,7 @@ def harvest_job_create(context,data_dict):
     exists = harvest_job_list(context,data_dict)
     if len(exists):
         log.warn('There is already an unrun job %r for this source %s', exists, source_id)
-        raise HarvestError('Sellele andmekorje allikale on värskenduse tellimus juba esitatud')
+        raise HarvestError(u'Sellele andmekorje allikale on värskenduse tellimus juba esitatud')
 
     job = HarvestJob()
     job.source = source
