@@ -3,6 +3,9 @@ from pylons import url as _pylons_default_url
 class HarvestError(Exception):
     pass
 
+class HarvestNotice(Exception):
+    pass
+
 def pager_url(ignore=None, page=None):
     # This has params the same as ckan.controllers.Package.pager_url NOT
     # ckan.helpers.pager_url

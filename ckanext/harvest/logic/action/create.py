@@ -10,6 +10,7 @@ from ckanext.harvest.logic.dictization import (harvest_source_dictize,
                                                harvest_job_dictize)
 from ckanext.harvest.logic.action.get import harvest_source_list,harvest_job_list
 from ckanext.harvest.lib import HarvestError
+from ckanext.harvest.lib import HarvestNotice
 
 log = logging.getLogger(__name__)
 
@@ -71,7 +72,7 @@ def harvest_job_create(context,data_dict):
     exists = harvest_job_list(context,data_dict)
     if len(exists):
         log.warn('There is already an unrun job %r for this source %s', exists, source_id)
-        raise HarvestError('There already is an unrun job for this source')
+        raise HarvestNotice('There already is an unrun job for this source')
 
     job = HarvestJob()
     job.source = source

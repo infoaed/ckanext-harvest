@@ -15,6 +15,7 @@ from ckan.lib.base import BaseController, c, g, request, \
 from ckan.lib.navl.dictization_functions import DataError
 from ckanext.harvest.logic.schema import harvest_source_form_schema
 from ckanext.harvest.lib import HarvestError, pager_url
+from ckanext.harvest.lib import HarvestNotice
 from ckan.lib.helpers import Page
 
 import logging
@@ -231,16 +232,19 @@ class ViewController(BaseController):
             context = {'model':model, 'user':c.user, 'session':model.Session}
             p.toolkit.get_action('harvest_job_create')(context,{'source_id':id})
             refresh_interval_min = config.get('ckan.harvest.refresh_interval_min', '15')
-            h.flash_success(u'Värskendus tellitud. Järgmine andmekorje toimub mitte hiljem kui %s minuti pärast.', refresh_interval_min)
+            h.flash_success(u'Allikas lisatud andmekorje järjekorda! Järgmine korje toimub mitte hiljem kui %s minuti pärast.', refresh_interval_min)
         except p.toolkit.ObjectNotFound:
             abort(404,_('Harvest source not found'))
         except p.toolkit.NotAuthorized,e:
             abort(401,self.not_auth_message)
         except HarvestError, e:
-            msg = 'Could not create harvest job: %s' % str(e)
+            msg = u'Viga allika lisamisel andmekorje järjekorda: %s' % str(e)
             h.flash_error(msg)
+        except HarvestNotice, e:
+            msg = u'Takistus allika lisamisel andmekorje järjekorda: %s' % str(e)
+            h.flash_notice(msg)
         except Exception, e:
-            msg = 'An error occurred: [%s]' % str(e)
+            msg = 'Tekkis viga: [%s]' % str(e)
             h.flash_error(msg)
 
         redirect(h.url_for('harvest'))
