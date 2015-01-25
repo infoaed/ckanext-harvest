@@ -208,7 +208,7 @@ class ViewController(BaseController):
 
             return render('source/read.html')
         except p.toolkit.ObjectNotFound:
-            abort(404,_('Harvest source not found'))
+            abort(404,_('Andmekorje allikat ei leitud'))
         except p.toolkit.NotAuthorized,e:
             abort(401,self.not_auth_message)
 
@@ -222,7 +222,7 @@ class ViewController(BaseController):
             h.flash_success(_('Harvesting source successfully inactivated'))
             redirect(h.url_for('harvest'))
         except p.toolkit.ObjectNotFound:
-            abort(404,_('Harvest source not found'))
+            abort(404,_('Andmekorje allikat ei leitud'))
         except p.toolkit.NotAuthorized,e:
             abort(401,self.not_auth_message)
 
@@ -232,9 +232,9 @@ class ViewController(BaseController):
             context = {'model':model, 'user':c.user, 'session':model.Session}
             p.toolkit.get_action('harvest_job_create')(context,{'source_id':id})
             refresh_interval_min = config.get('ckan.harvest.refresh_interval_min', '15')
-            h.flash_success(u'Allikas lisatud andmekorje järjekorda! Järgmine korje toimub mitte hiljem kui %s minuti pärast.', refresh_interval_min)
+            h.flash_success(u'Allikas lisatud andmekorje järjekorda! Järgmine korje toimub mitte hiljem kui %s minuti pärast.' % refresh_interval_min)
         except p.toolkit.ObjectNotFound:
-            abort(404,_('Harvest source not found'))
+            abort(404,_('Andmekorje allikat ei leitud'))
         except p.toolkit.NotAuthorized,e:
             abort(401,self.not_auth_message)
         except HarvestError, e:
