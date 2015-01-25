@@ -1,3 +1,5 @@
+# coding=UTF-8
+
 import re
 import logging
 
@@ -72,7 +74,7 @@ def harvest_job_create(context,data_dict):
     exists = harvest_job_list(context,data_dict)
     if len(exists):
         log.warn('There is already an unrun job %r for this source %s', exists, source_id)
-        raise HarvestNotice('There already is an unrun job for this source')
+        raise HarvestNotice(u'See allikas on juba lisatud andmekorje järjekorda!')
 
     job = HarvestJob()
     job.source = source
