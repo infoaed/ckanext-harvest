@@ -3,34 +3,33 @@
   xmlns:xi="http://www.w3.org/2001/XInclude"
   py:strip="">
 
-  <py:def function="page_title">Harvest Source Details</py:def>
+  <py:def function="page_title">Andmekorje allika detailvaade</py:def>
 
   <py:def function="optional_head">
     <link type="text/css" rel="stylesheet" media="all" href="/ckanext/harvest/style.css" />
   </py:def>
 
 <py:match path="breadcrumbs">
-    <li><a href="/data/search">Datasets</a></li>
-    <li><a href="/harvest">Harvest sources</a></li>
+    <li><a href="/data/search">Andmehulgad</a></li>
+    <li><a href="/harvest">Andmekorje allikad</a></li>
     <li><a href="/harvest/${c.source.id}">${c.source.title}</a></li>
   </py:match>
 
 <div py:match="content">
   <div class="harvest-content boxed">
   <py:if test="c.source">
-  <h1>Harvest Source</h1>
+  <h1>Andmekorje allikas</h1>
   <div id="harvest-source-actions">
   <a py:if="h.check_access('harvest_source_update', {'id':c.source.id})" class="btn btn-primary" href="/harvest/edit/${c.source.id}">
     <i class="icon-edit"></i>
-    Edit source
+    Muuda allika andmeid
   </a>
   <a py:if="h.check_access('harvest_job_create', {'source_id':c.source.id})" class="btn btn-primary" href="/harvest/refresh/${c.source.id}">
     <i class="icon-refresh"></i>
-    Refresh source
+    Värskenda
   </a>
 
     </div>
-    <div py:if="not c.source.active" class="alert alert-block">NB: This Harvest Source is Inactive. Therefore the Gemini XML will not be harvested again. However, any records that were previously harvested remain in the catalogue.</div>
     <table id="harvest-source-details" class="table table-bordered table-condensed" py:with="job_detail = h.check_access('harvest_job_create', {'source_id':c.source.id})">
         <tr py:if="job_detail">
             <th>ID</th>
@@ -41,24 +40,24 @@
             <td>${c.source.url}</td>
         </tr>
         <tr>
-            <th>Type</th>
+            <th>Tüüp</th>
             <td>${c.source.type}</td>
         </tr>
         <tr py:if="job_detail">
-            <th>Active</th>
+            <th>Aktiivne</th>
             <td>${c.source.active}</td>
         </tr>
         <tr py:if="c.source.title">
-            <th>Title</th>
+            <th>Pealkiri</th>
             <td>${c.source.title}</td>
         </tr>
 
         <tr>
-            <th>Description</th>
+            <th>Kirjeldus</th>
             <td>${c.source.description}</td>
         </tr>
         <tr>
-            <th>Configuration</th>
+            <th>Konfiguratsioon</th>
             <py:if test="c.source.config">
             <td>${c.source.config}</td>
             </py:if>
@@ -67,11 +66,11 @@
             </py:if>
         </tr>
         <tr py:if="job_detail">
-            <th>User</th>
+            <th>Kasutaja ID</th>
             <td>${c.source.user_id}</td>
         </tr>
         <tr>
-            <th>Publisher</th>
+            <th>Teabevaldaja</th>
             <py:if test="c.source.publisher_title">
             <td>${c.source.publisher_title}</td>
             </py:if>
@@ -80,21 +79,21 @@
             </py:if>
         </tr>
         <tr>
-            <th>Created</th>
+            <th>Loodud</th>
             <td>${c.source.created}</td>
         </tr>
         <py:if test="job_detail">
         <tr>
-            <th>Total harvests</th>
+            <th>Korjete arv</th>
             <td>${c.source.status.job_count}</td>
         </tr>
         <tr class="harvest-status">
-            <th>Status</th>
+            <th>Staatus</th>
             <td>
-                <a name="errors"/>Last Harvest Errors: ${c.source.status.last_harvest_statistics.errors}<br/>
+                <a name="errors"/>Viimase korje vead: ${c.source.status.last_harvest_statistics.errors}<br/>
                 <py:choose>
                     <py:when test="len(c.source.status.last_harvest_errors.gather)>0">
-                        <i>Gathering errors</i>
+                        <i>Andmehulkade nimekirja küsimise vead:</i>
                         <ul>
                         <li py:for="error in c.source.status.last_harvest_errors.gather">
                             <?python
@@ -107,10 +106,10 @@
                 </py:choose>
                 <py:choose>
                     <py:when test="len(c.source.status.last_harvest_errors.object)>0">
-                       <i>Object errors</i>
+                       <i>Konkreetse andmehulga küsimise vead:</i>
                         <ul>
                         <li py:for="error in c.source.status.last_harvest_errors.object">
-                            <div class="message">Harvest of GUID <a href="${g.site_url}/harvest/object/${error.object_id}">${error.object_guid}</a></div>
+                            <div class="message">GUID korje<a href="${g.site_url}/harvest/object/${error.object_id}">${error.object_guid}</a></div>
                             <div py:for="section in error['message'].split('\n\n')" class="message-section">
                               <div py:for="line in section.split('\n')" class="message">
                                 ${line}
@@ -121,29 +120,28 @@
                     </py:when>
                 </py:choose>
 
-                Last Harvest Added: ${c.source.status.last_harvest_statistics.added}<br/>
-                Last Harvest Updated: ${c.source.status.last_harvest_statistics.updated}<br/>
-                Last Harvest: ${c.source.status.last_harvest_request} <br/>
-                Next Harvest: ${c.source.status.next_harvest}
+                Viimane korje lisatud: ${c.source.status.last_harvest_statistics.added}<br/>
+                Viimane korje muudetud: ${c.source.status.last_harvest_statistics.updated}<br/>
+                Viimane korje: ${c.source.status.last_harvest_request} <br/>
+                Järgmine korje: ${c.source.status.next_harvest}
             </td>
         </tr>
         <tr>
-            <th>Total Errors (in all harvests)</th>
+            <th>Vigu kokku (üle kõikide korjete)</th>
             <td>${c.source.status.overall_statistics.errors}</td>
         </tr>
         <tr>
-            <th>Total Datasets (in all harvests)</th>
+            <th>Andmehulki kokku (üle kõikide korjete)</th>
             <td>${c.source.status.overall_statistics.added}</td>
         </tr>
         </py:if>
         <tr>
-            <th>Datasets</th>
+            <th>Andmehulgad</th>
             <td>
                 <a name="datasets"/>
-                <div py:if="job_detail">There could be a 10 minutes delay before these datasets (or changes to them) appear on
-                the site or on search results.</div>
+                <div py:if="job_detail">Andmekorja intervall on ${config.get('ckan.harvest.refresh_interval_min', '15')} minutit. Enne seda ei pruugi korjatud andmehulgad nähtavale ilmuda!</div>
 
-                <p i18n:msg="item_count">There are <strong>${c.page.item_count}</strong> datasets.</p>
+                <p i18n:msg="item_count">Korjatud on <strong>${c.page.item_count}</strong> andmehulka.</p>
 
                 <py:for each="item in c.page.items">
                 <div>
