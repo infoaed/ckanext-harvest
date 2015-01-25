@@ -3,7 +3,7 @@
   xmlns:xi="http://www.w3.org/2001/XInclude"
   py:strip="">
 
-    <py:def function="page_title">Edit - Harvest Source</py:def>
+    <py:def function="page_title">Muuda - Andmekorje allikad</py:def>
 
     <py:def function="optional_head">
         <link rel="stylesheet" href="${g.site_url}/css/forms.css" type="text/css" media="screen, print" />
@@ -11,15 +11,15 @@
     </py:def>
 
   <py:match path="breadcrumbs">
-    <li><a href="/data/search">Datasets</a></li>
-    <li><a href="/harvest">Harvest sources</a></li>
-    <li><a href="/harvest/edit/${c.source_id}">Edit</a></li>
+    <li><a href="/data/search">Andmehulgad</a></li>
+    <li><a href="/harvest">Andmekorje allikad</a></li>
+    <li><a href="/harvest/edit/${c.source_id}">Muuda</a></li>
 
   </py:match>
 
 
     <div py:match="content">
-        <h1>Edit harvest source <small py:if="c.source_title">${c.source_title}</small></h1>
+        <h1>Muuda andmekorje allikat: <small py:if="c.source_title">${c.source_title}</small></h1>
         <div class="harvest-content boxed">
             ${h.literal(c.form)}
         </div>

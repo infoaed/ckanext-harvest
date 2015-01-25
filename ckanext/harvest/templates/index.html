@@ -43,9 +43,9 @@
             <?python old_publisher = source['publisher_id'] ?>
             <tr class="${'active' if source.active else 'inactive'}">
                 <td align="center">
-                  <a href="harvest/${source.id}">Vaata</a>&nbsp;&nbsp;
-                  <a py:if="h.check_access('harvest_source_update', {'id':source.id})" href="harvest/edit/${source.id}">Muuda</a>&nbsp;&nbsp;
-                  <a py:if="h.check_access('harvest_job_create', {'source_id':source.id})" href="harvest/refresh/${source.id}">Värskenda</a>
+                  <a href="/harvest/${source.id}">Vaata</a>&nbsp;&nbsp;
+                  <a py:if="h.check_access('harvest_source_update', {'id':source.id})" href="/harvest/edit/${source.id}">Muuda</a>&nbsp;&nbsp;
+                  <a py:if="h.check_access('harvest_job_create', {'source_id':source.id})" href="/harvest/refresh/${source.id}">Värskenda</a>
                 </td>
                 <td title="${source.url}">${h.truncate(source.url, 60)}</td>
                 <td>${source.type}</td>
