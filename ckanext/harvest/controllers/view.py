@@ -233,14 +233,14 @@ class ViewController(BaseController):
             refresh_interval_min = config.get('ckan.harvest.refresh_interval_min', '15')
             h.flash_success(u'Värskendus tellitud. Järgmine andmekorje toimub mitte hiljem kui %s minuti pärast.', refresh_interval_min)
         except p.toolkit.ObjectNotFound:
-            abort(404,_('Harvest source not found'))
+            abort(404,_('Andmekorje allikat ei leitud'))
         except p.toolkit.NotAuthorized,e:
             abort(401,self.not_auth_message)
         except HarvestError, e:
-            msg = 'Could not create harvest job: %s' % str(e)
+            msg = 'Viga andmekorje tellimuse loomisel: %s' % str(e)
             h.flash_error(msg)
         except Exception, e:
-            msg = 'An error occurred: [%s]' % str(e)
+            msg = 'Tehniline viga: [%s]' % str(e)
             h.flash_error(msg)
 
         redirect(h.url_for('harvest'))
