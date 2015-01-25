@@ -59,12 +59,12 @@ def harvest_job_create(context,data_dict):
     source = HarvestSource.get(source_id)
     if not source:
         log.warn('Harvest source %s does not exist', source_id)
-        raise NotFound('Harvest source %s does not exist' % source_id)
+        raise NotFound('Selliset andmekorje allikat ei eksisteeri: %s' % source_id)
 
     # Check if the source is active
     if not source.active:
         log.warn('Harvest job cannot be created for inactive source %s', source_id)
-        raise HarvestError('Can not create jobs on inactive sources')
+        raise HarvestError('Operatsioon pole lubatud aktiveerimata andmekorje allikal!')
 
     # Check if there already is an unrun job for this source
     data_dict ={

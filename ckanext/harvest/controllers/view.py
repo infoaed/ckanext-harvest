@@ -238,7 +238,7 @@ class ViewController(BaseController):
         except p.toolkit.NotAuthorized,e:
             abort(401,self.not_auth_message)
         except HarvestError, e:
-            msg = u'Viga allika lisamisel andmekorje järjekorda: %s' % str(e)
+            msg = u'Viga allika lisamisel andmekorje järjekorda: %s' % unicode(e)
             h.flash_error(msg)
         except HarvestNotice, e:
             msg = u'Takistus allika lisamisel andmekorje järjekorda: %s' % unicode(e)
