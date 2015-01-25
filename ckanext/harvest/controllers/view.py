@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+
 import re
 from lxml import etree
 from lxml.etree import XMLSyntaxError
@@ -228,7 +230,8 @@ class ViewController(BaseController):
         try:
             context = {'model':model, 'user':c.user, 'session':model.Session}
             p.toolkit.get_action('harvest_job_create')(context,{'source_id':id})
-            h.flash_success(_('Refresh requested, harvesting will take place within 15 minutes.'))
+            refresh_interval_min = config.get('ckan.harvest.refresh_interval_min', '15')
+            h.flash_success(u'Värskendus tellitud. Järgmine andmekorje toimub mitte hiljem kui %s minuti pärast.', refresh_interval_min)
         except p.toolkit.ObjectNotFound:
             abort(404,_('Harvest source not found'))
         except p.toolkit.NotAuthorized,e:
