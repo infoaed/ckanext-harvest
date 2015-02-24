@@ -1,3 +1,5 @@
+﻿# -*- coding: utf-8 -*-
+
 from sqlalchemy import distinct
 
 from ckan.model import Package,Group
@@ -73,7 +75,7 @@ def _get_source_status(source, context):
            'packages':[]}
 
     if not job_count:
-        out['msg'] = 'No jobs yet'
+        out['msg'] = 'Korjeid pole veel olnud'
         return out
     else:
         out['job_count'] = job_count
@@ -81,9 +83,9 @@ def _get_source_status(source, context):
     # Get next scheduled job
     next_job = HarvestJob.filter(source=source,status=u'New').first()
     if next_job:
-        out['next_harvest'] = 'Scheduled'
+        out['next_harvest'] = u'Lisatud järjekorda'
     else:
-        out['next_harvest'] = 'Not yet scheduled'
+        out['next_harvest'] = u'Ei ole järjekorda lisatud'
 
     # Get the last finished job
     last_job = HarvestJob.filter(source=source,status=u'Finished') \
