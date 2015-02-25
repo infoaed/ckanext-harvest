@@ -3,7 +3,7 @@ ckanext-harvest - Remote harvesting extension
 =============================================
 
 This extension provides a common harvesting framework for ckan extensions
-and adds a CLI and a WUI to CKAN to manage harvesting sources and jobs.
+and adds a CLI and a WUI to CKAN to manage harvesting sources and jobs .
 
 Installation
 ============
