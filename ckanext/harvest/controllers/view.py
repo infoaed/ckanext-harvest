@@ -23,7 +23,7 @@ log = logging.getLogger(__name__)
 
 class ViewController(BaseController):
 
-    not_auth_message = _('Operatsioon pole lubatud')
+    not_auth_message = _("Not authorized to see this page")
 
     def _get_publishers(self):
         groups = None
@@ -67,7 +67,7 @@ class ViewController(BaseController):
         try:
             p.toolkit.check_access('harvest_source_create', context)
         except p.toolkit.NotAuthorized:
-            abort(401, _('Operatsioon pole lubatud'))
+            abort(401, _("Unauthorized to create a harvest source"))
 
         if ('save' in request.params) and not data:
             return self._save_new()
@@ -107,12 +107,12 @@ class ViewController(BaseController):
             # Create a harvest job for the new source
             p.toolkit.get_action('harvest_job_create')(context,{'source_id':source['id']})
 
-            h.flash_success(u'Uus andmekorje allikas loodud ja lisatud andmekorje järjekorda!')
+            h.flash_success(_("New harvest source added successfully."))
             redirect('/harvest/%s' % source['id'])
         except p.toolkit.NotAuthorized,e:
             abort(401,self.not_auth_message)
         except DataError,e:
-            abort(400, 'Andmetervikluse viga')
+            abort(400, _("Integrity Error"))
         except p.toolkit.ValidationError,e:
             errors = e.error_dict
             error_summary = e.error_summary if hasattr(e,'error_summary') else None
@@ -128,13 +128,13 @@ class ViewController(BaseController):
 
             old_data = p.toolkit.get_action('harvest_source_show')(context, {'id':id})
         except p.toolkit.ObjectNotFound:
-            abort(404, _('Andmekorja allikat ei leitud'))
+            abort(404, _("Harvest Source not found"))
         except p.toolkit.NotAuthorized:
             abort(401, self.not_auth_message)
         try:
             p.toolkit.check_access('harvest_source_update', context)
         except p.toolkit.NotAuthorized:
-            abort(401, _('Operatsioon pole lubatud'))
+            abort(401, _("Unauthorized to update the harvest source"))
 
         data = data or old_data
         errors = errors or {}
@@ -163,14 +163,14 @@ class ViewController(BaseController):
 
             source = p.toolkit.get_action('harvest_source_update')(context,data_dict)
 
-            h.flash_success(_('Andmekorje allikas edukalt salvestatud.'))
+            h.flash_success(_("Harvest source edited successfully."))
             redirect('/harvest/%s' %id)
         except p.toolkit.NotAuthorized,e:
             abort(401,self.not_auth_message)
         except DataError,e:
-            abort(400, _('Andmetervikluse viga'))
+            abort(400, _("Integrity Error"))
         except p.toolkit.ObjectNotFound, e:
-            abort(404, _('Andmekorje allikat ei leitud'))
+            abort(404, _("Harvest Source not found"))
         except p.toolkit.ValidationError,e:
             errors = e.error_dict
             error_summary = e.error_summary if hasattr(e,'error_summary') else None
@@ -207,7 +207,7 @@ class ViewController(BaseController):
 
             return render('source/read.html')
         except p.toolkit.ObjectNotFound:
-            abort(404,_('Andmekorje allikat ei leitud'))
+            abort(404,_("Harvest source not found"))
         except p.toolkit.NotAuthorized,e:
             abort(401,self.not_auth_message)
 
@@ -218,10 +218,10 @@ class ViewController(BaseController):
             context = {'model':model, 'user':c.user}
             p.toolkit.get_action('harvest_source_delete')(context, {'id':id})
 
-            h.flash_success(_('Andmekorje allikas de-aktiveeritud!'))
+            h.flash_success(_(_("Harvesting source successfully inactivated")))
             redirect(h.url_for('harvest'))
         except p.toolkit.ObjectNotFound:
-            abort(404,_('Andmekorje allikat ei leitud'))
+            abort(404,_("Harvest source not found"))
         except p.toolkit.NotAuthorized,e:
             abort(401,self.not_auth_message)
 
@@ -231,19 +231,19 @@ class ViewController(BaseController):
             context = {'model':model, 'user':c.user, 'session':model.Session}
             p.toolkit.get_action('harvest_job_create')(context,{'source_id':id})
             refresh_interval_min = config.get('ckan.harvest.refresh_interval_min', '15')
-            h.flash_success(u'Allikas lisatud andmekorje järjekorda! Järgmine korje toimub mitte hiljem kui %s minuti pärast.' % refresh_interval_min)
+            h.flash_success(_("Refresh requested, harvesting will take place within 15 minutes."))
         except p.toolkit.ObjectNotFound:
-            abort(404,_('Andmekorje allikat ei leitud'))
+            abort(404,_("Harvest source not found"))
         except p.toolkit.NotAuthorized,e:
             abort(401,self.not_auth_message)
         except HarvestError, e:
-            msg = u'Viga allika lisamisel andmekorje järjekorda: %s' % unicode(e)
+            msg = _("Could not create harvest job: %s") % unicode(e)
             h.flash_error(msg)
         except HarvestNotice, e:
             msg = u'Takistus allika lisamisel andmekorje järjekorda: %s' % unicode(e)
             h.flash_notice(msg)
         except Exception, e:
-            msg = 'Tekkis viga: [%s]' % str(e)
+            msg = _("An error occurred: [%s]") % str(e)
             h.flash_error(msg)
 
         redirect(h.url_for('harvest'))
@@ -269,9 +269,9 @@ class ViewController(BaseController):
             response.headers['Content-Length'] = len(obj['content'])
             return obj['content']
         except p.toolkit.ObjectNotFound:
-            abort(404,_('Korjeobjekti ei leitud'))
+            abort(404,_("Harvest object not found"))
         except p.toolkit.NotAuthorized,e:
             abort(401,self.not_auth_message)
         except Exception, e:
-            msg = 'Tekkis viga: [%s]' % str(e)
+            msg = _("An error occurred [%s]") % str(e)
             abort(500,msg)
