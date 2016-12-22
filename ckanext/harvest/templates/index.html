@@ -23,9 +23,9 @@
         <tr>
             <th></th>
             <th>URL</th>
-            <th>Type
-            Active
-            Created</th>
+            <th>Type</th>
+            <th>Active</th>
+            <th>Created</th>
         </tr>
         <?python old_publisher = None ?>
         <py:for each="source in (sources if can_edit else (s for s in sources if s.active))">
