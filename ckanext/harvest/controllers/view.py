@@ -231,7 +231,7 @@ class ViewController(BaseController):
             context = {'model':model, 'user':c.user, 'session':model.Session}
             p.toolkit.get_action('harvest_job_create')(context,{'source_id':id})
             refresh_interval_min = config.get('ckan.harvest.refresh_interval_min', '15')
-            h.flash_success(_("Refresh requested, harvesting will take place within 15 minutes."))
+            h.flash_success(_("Refresh requested, harvesting will take place within %s minutes.") % refresh_interval_min)
         except p.toolkit.ObjectNotFound:
             abort(404,_("Harvest source not found"))
         except p.toolkit.NotAuthorized,e:
@@ -240,7 +240,7 @@ class ViewController(BaseController):
             msg = _("Could not create harvest job: %s") % unicode(e)
             h.flash_error(msg)
         except HarvestNotice, e:
-            msg = u'Takistus allika lisamisel andmekorje järjekorda: %s' % unicode(e)
+            msg = _("Could not schedule harvest job: %s") % unicode(e)
             h.flash_notice(msg)
         except Exception, e:
             msg = _("An error occurred: [%s]") % str(e)
