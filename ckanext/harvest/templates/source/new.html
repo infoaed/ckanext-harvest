@@ -13,9 +13,9 @@
     </py:def>
 
   <py:match path="breadcrumbs">
-    <li><a href="/data/search">Datasets</a></li>
-    <li><a href="/harvest">Harvest sources</a></li>
-    <li><a href="/harvest/new">New source</a></li>
+    <li><a href="${h.url_for('/data/search')}">Datasets</a></li>
+    <li><a href="${h.url_for('/harvest')}">Harvest sources</a></li>
+    <li><a href="${h.url_for('/harvest/new')}">New source</a></li>
   </py:match>
 
 

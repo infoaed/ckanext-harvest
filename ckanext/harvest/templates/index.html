@@ -14,8 +14,8 @@
   </py:def>
 
   <py:match path="breadcrumbs">
-    <li><a href="/data/search">Datasets</a></li>
-    <li><a href="/harvest">Harvest sources</a></li>
+    <li><a href="${h.url_for('/data/search')}">Datasets</a></li>
+    <li><a href="${h.url_for('/harvest')}">Harvest sources</a></li>
   </py:match>
 
   <py:def function="harvest_source_table(sources, can_edit)">
@@ -43,9 +43,9 @@
             <?python old_publisher = source['publisher_id'] ?>
             <tr class="${'active' if source.active else 'inactive'}">
                 <td align="center">
-                  <a href="/harvest/${source.id}">View</a>&nbsp;&nbsp;
-                  <a py:if="h.check_access('harvest_source_update', {'id':source.id})" href="/harvest/edit/${source.id}">Edit</a>&nbsp;&nbsp;
-                  <a py:if="h.check_access('harvest_job_create', {'source_id':source.id})" href="/harvest/refresh/${source.id}">Refresh</a>
+                  <a href="${h.url_for('/harvest/')+source.id}">View</a>&nbsp;&nbsp;
+                  <a py:if="h.check_access('harvest_source_update', {'id':source.id})" href="${h.url_for('/harvest/edit/')+source.id}">Edit</a>&nbsp;&nbsp;
+                  <a py:if="h.check_access('harvest_job_create', {'source_id':source.id})" href="${h.url_for('/harvest/refresh/')+source.id}">Refresh</a>
                 </td>
                 <td title="${source.url}">${h.truncate(source.url, 60)}</td>
                 <td>${source.type}</td>
@@ -59,7 +59,7 @@
 
     <div py:match="content" py:with="can_edit=h.check_access('harvest_source_create'); org_ids=[o.id for o in c.userobj.get_groups('organization')] if c.userobj else []">
 
-        <a py:if="can_edit" class="btn btn-primary pull-right" id="xnew-harvest-source" href="harvest/new">
+        <a py:if="can_edit" class="btn btn-primary pull-right" id="xnew-harvest-source" href="${h.url_for('harvest/new')}">
             <i class="icon-plus"></i>Add a harvesting source</a>
 
         <h1>Harvesting sources</h1>

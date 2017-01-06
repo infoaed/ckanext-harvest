@@ -10,9 +10,9 @@
   </py:def>
 
 <py:match path="breadcrumbs">
-    <li><a href="/data/search">Datasets</a></li>
-    <li><a href="/harvest">Harvest sources</a></li>
-    <li><a href="/harvest/${c.source.id}">${c.source.title}</a></li>
+    <li><a href="${h.url_for('/data/search')}">Datasets</a></li>
+    <li><a href="${h.url_for('/harvest')}">Harvest sources</a></li>
+    <li><a href="${h.url_for('/harvest/')+c.source.id}">${c.source.title}</a></li>
   </py:match>
 
 <div py:match="content">
@@ -20,9 +20,9 @@
   <py:if test="c.source">
   <h1>Harvest Source</h1>
   <div id="harvest-source-actions">
-  <a py:if="h.check_access('harvest_source_update', {'id':c.source.id})" class="btn btn-primary" href="/harvest/edit/${c.source.id}">
+  <a py:if="h.check_access('harvest_source_update', {'id':c.source.id})" class="btn btn-primary" href="${h.url_for('/harvest/edit/')+c.source.id}">
     <i class="icon-edit"></i>Edit source</a>
-  <a py:if="h.check_access('harvest_job_create', {'source_id':c.source.id})" class="btn btn-primary" href="/harvest/refresh/${c.source.id}">
+  <a py:if="h.check_access('harvest_job_create', {'source_id':c.source.id})" class="btn btn-primary" href="${h.url_for('/harvest/refresh/')+c.source.id}">
     <i class="icon-refresh"></i>Refresh source</a>
 
     </div>
@@ -142,7 +142,7 @@
 
                 <py:for each="item in c.page.items">
                 <div>
-                <a href="/dataset/${item}">${item}</a>
+                <a href="${h.url_for('/dataset/')+item}">${item}</a>
                 </div>
                 </py:for>
                 ${paginator(c.page)}
