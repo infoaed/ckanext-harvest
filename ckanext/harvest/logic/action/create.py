@@ -5,6 +5,7 @@ import logging
 
 from ckan.logic import NotFound, ValidationError, check_access
 from ckan.lib.navl.dictization_functions import validate
+from ckan.lib.base import _
 
 from ckanext.harvest.model import (HarvestSource, HarvestJob, HarvestObject)
 from ckanext.harvest.logic.schema import default_harvest_source_schema

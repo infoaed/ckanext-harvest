@@ -3,6 +3,8 @@
 from sqlalchemy import distinct
 
 from ckan.model import Package,Group
+from ckan.lib.base import _
+
 from ckanext.harvest.model import HarvestSource, HarvestJob, HarvestObject, \
                                   HarvestGatherError, HarvestObjectError
 
